@@ -1,0 +1,132 @@
+﻿Build started 17/02/2020 20:00:43.
+     1>Project "C:\opensmile\ide\vs10\openSmileLib.vcxproj" on node 4 (build target(s)).
+     1>InitializeBuildStatus:
+         Touching "Release\openSmileLib.unsuccessfulbuild".
+       ClCompile:
+         All outputs are up-to-date.
+         All outputs are up-to-date.
+       ManifestResourceCompile:
+         All outputs are up-to-date.
+     1>C:\Program Files (x86)\MSBuild\Microsoft.Cpp\v4.0\Microsoft.CppBuild.targets(990,5): warning MSB8012: TargetPath(C:\opensmile\ide\vs10\Release\openSmileLib_Release.dll) does not match the Linker's OutputFile property value (C:\msvcbuild\openSmileLib_Release.dll). This may cause your project to build incorrectly. To correct this, please make sure that $(OutDir), $(TargetName) and $(TargetExt) property values match the value specified in %(Link.OutputFile).
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"..\..\..\msvcbuild\openSmileLib_Release.dll" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"Release\openSmileLib_Release.dll.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"C:\opensmile\ide\vs10\Release\openSmileLib_Release.pdb" /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"..\..\..\msvcbuild\openSmileLib_Release.lib" /MACHINE:X86 /DLL Release\openSmileLib_Release.dll.embed.manifest.res
+         Release\juliusSink.obj
+         Release\commandlineParser.obj
+         Release\componentManager.obj
+         Release\configManager.obj
+         Release\dataMemory.obj
+         Release\dataProcessor.obj
+         Release\dataReader.obj
+         Release\dataSelector.obj
+         Release\dataSink.obj
+         Release\dataSource.obj
+         Release\dataWriter.obj
+         Release\exceptions.obj
+         Release\nullSink.obj
+         Release\smileCommon.obj
+         Release\smileComponent.obj
+         Release\smileLogger.obj
+         Release\vecToWinProcessor.obj
+         Release\vectorProcessor.obj
+         Release\vectorTransform.obj
+         Release\winToVecProcessor.obj
+         Release\windowProcessor.obj
+         Release\dbA.obj
+         Release\signalGenerator.obj
+         Release\smileResample.obj
+         Release\specResample.obj
+         Release\vadV1.obj
+         Release\acf.obj
+         Release\amdf.obj
+         Release\contourSmoother.obj
+         Release\deltaRegression.obj
+         Release\fftmagphase.obj
+         Release\fftsg.obj
+         Release\framer.obj
+         Release\fullinputMean.obj
+         Release\fullturnMean.obj
+         Release\monoMixdown.obj
+         Release\preemphasis.obj
+         Release\transformFft.obj
+         Release\turnDetector.obj
+         Release\vectorMVN.obj
+         Release\vectorPreemphasis.obj
+         Release\windower.obj
+         Release\exampleSink.obj
+         Release\exampleSource.obj
+         Release\functionalComponent.obj
+         Release\functionalCrossings.obj
+         Release\functionalDCT.obj
+         Release\functionalExtremes.obj
+         Release\functionalLpc.obj
+         Release\functionalMeans.obj
+         Release\functionalMoments.obj
+         Release\functionalOnset.obj
+         Release\functionalPeaks.obj
+         Release\functionalPeaks2.obj
+         Release\functionalPercentiles.obj
+         Release\functionalRegression.obj
+         Release\functionalSamples.obj
+         Release\functionalSegments.obj
+         Release\functionalTimes.obj
+         Release\functionals.obj
+         Release\harmonics.obj
+         Release\lsp.obj
+         Release\specScale.obj
+         Release\libsvmSink.obj
+         Release\arffSink.obj
+         Release\arffSource.obj
+         Release\csvSink.obj
+         Release\csvSource.obj
+         Release\datadumpSink.obj
+         Release\htkSink.obj
+         Release\htkSource.obj
+         Release\waveSink.obj
+         Release\waveSinkCut.obj
+         Release\waveSource.obj
+         Release\cens.obj
+         Release\chroma.obj
+         Release\formantLpc.obj
+         Release\formantSmoother.obj
+         Release\lpc.obj
+         Release\pitchDirection.obj
+         Release\pitchJitter.obj
+         Release\pitchShs.obj
+         Release\pitchSmootherViterbi.obj
+         Release\tonefilt.obj
+         Release\tonespec.obj
+         Release\energy.obj
+         Release\intensity.obj
+         Release\melspec.obj
+         Release\mfcc.obj
+         Release\mzcr.obj
+         Release\pitchACF.obj
+         Release\pitchBase.obj
+         Release\pitchSmoother.obj
+         Release\plp.obj
+         Release\spectral.obj
+         Release\bowProducer.obj
+         Release\maxIndex.obj
+         Release\valbasedSelector.obj
+         Release\vectorConcat.obj
+         Release\vectorOperation.obj
+         Release\smileUtil.obj
+         Release\smileUtilSpline.obj
+         Release\zerosolve.obj
+         C:\opensmile\ide\vs10\Release\openSmileLibClassif.lib
+         C:\opensmile\ide\vs10\Release\openSmileLibLibsvm.lib
+         C:\opensmile\ide\vs10\Release\openSmileLibPortaudio.lib
+     1>LINK : warning LNK4075: ignoring '/INCREMENTAL' due to '/OPT:ICF' specification
+            Creating library ..\..\..\msvcbuild\openSmileLib_Release.lib and object ..\..\..\msvcbuild\openSmileLib_Release.exp
+     1>componentManager.obj : error LNK2001: unresolved external symbol "public: static class sComponentInfo * __cdecl cSimpleMessageSender::registerComponent(class cConfigManager *,class cComponentManager *)" (?registerComponent@cSimpleMessageSender@@SAPAVsComponentInfo@@PAVcConfigManager@@PAVcComponentManager@@@Z)
+     1>componentManager.obj : error LNK2001: unresolved external symbol "protected: virtual void __thiscall cSimpleMessageSender::fetchConfig(void)" (?fetchConfig@cSimpleMessageSender@@MAEXXZ)
+     1>componentManager.obj : error LNK2001: unresolved external symbol "protected: virtual int __thiscall cSimpleMessageSender::myFinaliseInstance(void)" (?myFinaliseInstance@cSimpleMessageSender@@MAEHXZ)
+     1>componentManager.obj : error LNK2001: unresolved external symbol "protected: virtual int __thiscall cSimpleMessageSender::myTick(__int64)" (?myTick@cSimpleMessageSender@@MAEH_J@Z)
+     1>componentManager.obj : error LNK2001: unresolved external symbol "protected: virtual int __thiscall cSimpleMessageSender::processComponentMessage(class cComponentMessage *)" (?processComponentMessage@cSimpleMessageSender@@MAEHPAVcComponentMessage@@@Z)
+     1>componentManager.obj : error LNK2019: unresolved external symbol "public: virtual __thiscall cSimpleMessageSender::~cSimpleMessageSender(void)" (??1cSimpleMessageSender@@UAE@XZ) referenced in function "public: virtual void * __thiscall cSimpleMessageSender::`scalar deleting destructor'(unsigned int)" (??_GcSimpleMessageSender@@UAEPAXI@Z)
+     1>..\..\..\msvcbuild\openSmileLib_Release.dll : fatal error LNK1120: 6 unresolved externals
+     1>Done Building Project "C:\opensmile\ide\vs10\openSmileLib.vcxproj" (build target(s)) -- FAILED.
+
+Build FAILED.
+
+Time Elapsed 00:00:00.52

@@ -1,0 +1,17 @@
+﻿Build started 17/02/2020 20:00:43.
+     1>Project "C:\opensmile\ide\vs10\openSmileLibLibsvm.vcxproj" on node 3 (build target(s)).
+     1>InitializeBuildStatus:
+         Creating "Release\openSmileLibLibsvm.unsuccessfulbuild" because "AlwaysCreate" was specified.
+       ClCompile:
+         All outputs are up-to-date.
+       Lib:
+         All outputs are up-to-date.
+         openSmileLibLibsvm.vcxproj -> C:\opensmile\ide\vs10\Release\openSmileLibLibsvm.lib
+       FinalizeBuildStatus:
+         Deleting file "Release\openSmileLibLibsvm.unsuccessfulbuild".
+         Touching "Release\openSmileLibLibsvm.lastbuildstate".
+     1>Done Building Project "C:\opensmile\ide\vs10\openSmileLibLibsvm.vcxproj" (build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:00.02
