@@ -4,6 +4,7 @@ import cv2
 import tensorflow.keras.models as models
 from mtcnn import MTCNN
 
+
 def encode_video(filename):
 	"""
 		Encodes frames from video file into a lower dimensional representation
@@ -24,7 +25,7 @@ def encode_video(filename):
 	cap = cv2.VideoCapture(filename)
 	
 	# Check if camera opened successfully
-	if (cap.isOpened() == False):
+	if not cap.isOpened():
 		print("Error opening video stream or file")
 	
 	all_faces = []
