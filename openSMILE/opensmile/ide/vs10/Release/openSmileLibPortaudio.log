@@ -1,0 +1,17 @@
+﻿Build started 17/02/2020 20:00:43.
+     1>Project "C:\opensmile\ide\vs10\openSmileLibPortaudio.vcxproj" on node 4 (build target(s)).
+     1>InitializeBuildStatus:
+         Creating "Release\openSmileLibPortaudio.unsuccessfulbuild" because "AlwaysCreate" was specified.
+       ClCompile:
+         All outputs are up-to-date.
+       Lib:
+         All outputs are up-to-date.
+         openSmileLibPortaudio.vcxproj -> C:\opensmile\ide\vs10\Release\openSmileLibPortaudio.lib
+       FinalizeBuildStatus:
+         Deleting file "Release\openSmileLibPortaudio.unsuccessfulbuild".
+         Touching "Release\openSmileLibPortaudio.lastbuildstate".
+     1>Done Building Project "C:\opensmile\ide\vs10\openSmileLibPortaudio.vcxproj" (build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:00.03
