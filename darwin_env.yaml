@@ -6,5 +6,7 @@ dependencies:
   - tensorflow
   - numpy
   - scikit-learn
+  - matplotlib
   - pip:
     - mtcnn
+    - git+https://github.com/rcmalli/keras-vggface.git

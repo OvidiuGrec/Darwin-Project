@@ -97,6 +97,39 @@ def facenet_encoding(faces):
 	return encoding
 
 
+def FDHH(video_segment):
+
+	frames, components = video_segment.shape  # (N, C) in the paper
+	pattern_len = 5  # (M) in the paper
+	# TODO: Investigate this value... Suggested to use if features are [0, 1]
+	thresh = 1/255  # (T) in the paper
+
+	dynamics = np.abs(video_segment[1:] - video_segment[:-1])
+	binary_d = np.where(dynamics > thresh, 1, 0).T  # (D(c,n)) in the paper
+
+	fdhh = np.zeros((pattern_len, components))
+
+	for c in range(components):
+		count = 0
+		for n in range(frames - 2):
+			if binary_d[c, n+1]:
+				count += 1
+			elif 0 < count <= pattern_len:
+				fdhh[count-1, c] += 1
+				count = 0
+			elif count > pattern_len:
+				fdhh[pattern_len-1, c] += 1
+
+
+
+
+	
+
+
+
+
+
+
 
 
 
