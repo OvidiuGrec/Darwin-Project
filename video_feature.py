@@ -1,8 +1,12 @@
 import numpy as np
 import cv2
-
 import tensorflow.keras.models as models
 from mtcnn import MTCNN
+import keras_vggface
+from keras_vggface.vggface import VGGFace
+
+RESNET_FACE_SIZE = (160, 160)
+VGGFACE_FACE_SIZE = (224, 224)
 
 def encode_video(filename):
 	"""
@@ -32,7 +36,7 @@ def encode_video(filename):
 		ret, frame = cap.read()
 		if ret:
 			frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-			face = extract_face(frame, face_detector)
+			face = extract_face(frame, face_detector, RESNET_FACE_SIZE)
 			all_faces.append(face)
 		else:
 			break
@@ -44,7 +48,7 @@ def encode_video(filename):
 	return encoded_faces
 
 
-def extract_face(frame, face_detector):
+def extract_face(frame, face_detector, required_size=(224, 224)):
 	"""
 		Detects and extracts a face from the image
 	
@@ -58,7 +62,7 @@ def extract_face(frame, face_detector):
 	
 		Returns
 		-------
-		face : ndarray (160 * 160 * 3)
+		face : ndarray (required_size * 3)
 			A face extracted from the original image and fitted into 160 by 160 pixels
 	"""
 	
@@ -68,7 +72,7 @@ def extract_face(frame, face_detector):
 	x2, y2 = x1+width, y1+height
 
 	face = frame[y1:y2, x1:x2]
-	face = cv2.resize(face, (160, 160))  # Resize for FaceNet
+	face = cv2.resize(face, required_size)  # Resize for FaceNet
 	
 	return face.astype('float64')
 
@@ -95,10 +99,34 @@ def facenet_encoding(faces):
 	
 	return encoding
 
+def vggface_encoding(faces):
+    """
+		Encodes an image of a face into a lower dimensional representation
 
+		Parameters
+		----------
+		faces : ndarray (n * 224 * 224 * 3)
+			An array of face images to be encoded
 
+		Returns
+		-------
+		encoding : ndarray (n * X)
+			Feature-vector of a face representations
+	"""
+    scaled_faces = (faces - faces.mean()) / faces.std()  # Standardise across channels
 
-
-
-
-
+    # this returns convolution features 
+    model = VGGFace(include_top=False, input_shape=(224, 224, 3), pooling='avg')
+    
+    # this returns layer-specific features
+#    wanted_layer = "conv5_1_1x1_reduce" #example layer name, see https://github.com/rcmalli/keras-vggface/blob/master/keras_vggface/models.py
+#    vgg_model = VGGFace() # pooling: None, avg or max
+#    out = vgg_model.get_layer(wanted_layer).output
+#    vgg_model_custom_layer = Model(vgg_model.input, out)
+    
+    # summarize input and output shape
+#     print('Inputs: %s' % model.inputs)
+#     print('Outputs: %s' % model.outputs)
+#     print(face.shape)
+    yhat = model.predict(scaled_faces)
+    return yhat
