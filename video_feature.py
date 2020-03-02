@@ -8,6 +8,7 @@ from keras_vggface.vggface import VGGFace
 RESNET_FACE_SIZE = (160, 160)
 VGGFACE_FACE_SIZE = (224, 224)
 
+
 def encode_video(filename):
 	"""
 		Encodes frames from video file into a lower dimensional representation
@@ -28,7 +29,7 @@ def encode_video(filename):
 	cap = cv2.VideoCapture(filename)
 	
 	# Check if camera opened successfully
-	if (cap.isOpened() == False):
+	if not cap.isOpened():
 		print("Error opening video stream or file")
 	
 	all_faces = []
@@ -103,11 +104,11 @@ def vggface_encoding(faces):
     """
 		Encodes an image of a face into a lower dimensional representation
 
+<<<<<<< HEAD
 		Parameters
 		----------
 		faces : ndarray (n * 224 * 224 * 3)
 			An array of face images to be encoded
-
 		Returns
 		-------
 		encoding : ndarray (n * X)
@@ -118,11 +119,13 @@ def vggface_encoding(faces):
     # this returns convolution features 
     model = VGGFace(include_top=False, input_shape=(224, 224, 3), pooling='avg')
     
+    # TODO: enable layer-specific features? if needed
     # this returns layer-specific features
-#    wanted_layer = "conv5_1_1x1_reduce" #example layer name, see https://github.com/rcmalli/keras-vggface/blob/master/keras_vggface/models.py
-#    vgg_model = VGGFace() # pooling: None, avg or max
-#    out = vgg_model.get_layer(wanted_layer).output
-#    vgg_model_custom_layer = Model(vgg_model.input, out)
+    # wanted_layer = "conv5_1_1x1_reduce" #example layer name, see https://github.com/rcmalli/keras-vggface/blob/master/keras_vggface/models.py
+    # vgg_model = VGGFace(model='resnet50')
+    # out = vgg_model.get_layer(wanted_layer).output
+    # r = keras.layers.Flatten()(out)
+    # vgg_model_custom_layer = Model(vgg_model.input, r)
     
     # summarize input and output shape
 #     print('Inputs: %s' % model.inputs)
@@ -130,3 +133,26 @@ def vggface_encoding(faces):
 #     print(face.shape)
     yhat = model.predict(scaled_faces)
     return yhat
+
+def FDHH(video_segment):
+
+	frames, components = video_segment.shape  # (N, C) in the paper
+	pattern_len = 5  # (M) in the paper
+	# TODO: Investigate this value... Suggested to use if features are [0, 1]
+	thresh = 1/255  # (T) in the paper
+
+	dynamics = np.abs(video_segment[1:] - video_segment[:-1])
+	binary_d = np.where(dynamics > thresh, 1, 0).T  # (D(c,n)) in the paper
+
+	fdhh = np.zeros((pattern_len, components))
+
+	for c in range(components):
+		count = 0
+		for n in range(frames - 2):
+			if binary_d[c, n+1]:
+				count += 1
+			elif 0 < count <= pattern_len:
+				fdhh[count-1, c] += 1
+				count = 0
+			elif count > pattern_len:
+				fdhh[pattern_len-1, c] += 1
