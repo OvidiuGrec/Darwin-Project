@@ -157,6 +157,7 @@ def vggface_encoding(faces):
 	wanted_layer = "fc6"  # example layer name, see https://github.com/rcmalli/keras-vggface/blob/master/keras_vggface/models.py
 	vgg_model = VGGFace(model='vgg16', weights='vggface', input_shape=(224, 224, 3), include_top=True)
 	out = vgg_model.get_layer(wanted_layer).output
+	l
 	# r = layers.Flatten()(out)
 	vgg_model_custom_layer = Model(inputs=vgg_model.input, outputs=out)
 	
