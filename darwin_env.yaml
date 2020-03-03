@@ -2,8 +2,10 @@ name: darwin
 channels:
   - defaults
 dependencies:
+  - python==3.7
+  - pip==20.0.2
   - pandas
-  - tensorflow
+  - tensorflow==2.1.0
   - numpy
   - scikit-learn
   - matplotlib
