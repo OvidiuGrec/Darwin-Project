@@ -16,24 +16,31 @@ from keras_vggface.utils import preprocess_input
 
 
 VGGFACE_FACE_SIZE = (224, 224, 3)
+VIDEO_FOLDER = 'data/video'
 
 
-def all_video_features():
+def get_video_features():
 
-	video_folder = 'data/video'
+	features = pd.read_pickle(f'{VIDEO_FOLDER}/features/development_freeform.pkl')
+	features = features.dropna(axis=1).T
+
+	return features
+
+def extract_all_video_features():
 	
 	face_detector = MTCNN()
 	model = get_vggface()
 	
 	dataset = {}
-	for (dirpath, _, filenames) in walk(video_folder):
+	for (dirpath, _, filenames) in walk(f'{VIDEO_FOLDER}/Video'):
 		split_path = dirpath.split('\\')
 		if filenames:
 			folder_data = pd.DataFrame(columns=[file[:-10] for file in filenames])
 			for file in filenames:
-				print(f'Extracting features from {file}')
-				folder_data[file] = encode_video(f'{dirpath}/{file}', face_detector, model)
-			pd.to_pickle(folder_data, f'{video_folder}/features/{split_path[-2].lower()}_{split_path[-1].lower()}.pkl')
+				if file.endswith('.mp4'):
+					print(f'Extracting features from {file}')
+					folder_data[file[:-10]] = encode_video(f'{dirpath}/{file}', face_detector, model)
+			pd.to_pickle(folder_data, f'{VIDEO_FOLDER}/features/{split_path[-2].lower()}_{split_path[-1].lower()}.pkl')
 			
 			
 def encode_video(filename, face_detector, model):
@@ -177,4 +184,4 @@ def FDHH(video_segment):
 
 
 if __name__ == '__main__':
-	all_video_features()
+	extract_all_video_features()
