@@ -1,0 +1,11 @@
+form Title of the dialog window
+   sentence input_path
+   sentence output_path
+endform
+
+sound = Read from file: input_path$
+selectObject: sound
+To PowerCepstrogram: 300, 0.01, 5000, 50
+To PowerCepstrum (slice): 0.01
+prominence = Get peak prominence: 60, 333.3, "Parabolic", 0.002, 0.00, "Straight", "Robust slow"
+writeFileLine: output_path$, prominence

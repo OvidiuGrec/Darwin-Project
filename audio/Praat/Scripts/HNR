@@ -1,0 +1,9 @@
+form Title of the dialog window
+   sentence input_path
+   sentence output_path
+endform
+
+sound = Read from file: input_path$
+selectObject: sound
+To Harmonicity (ac)... 0.01 75 0.1 4
+Save as text file: output_path$
