@@ -11,5 +11,8 @@ dependencies:
   - scikit-learn
   - matplotlib
   - pip:
+    - pydub
+    - librosa
+    - Signal_Analysis
     - mtcnn
     - git+https://github.com/rcmalli/keras-vggface.git
