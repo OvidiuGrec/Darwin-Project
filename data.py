@@ -1,6 +1,9 @@
 import os
 import pandas as pd
 
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+
 from video_features import VideoFeatures
 
 class Data:
@@ -9,7 +12,7 @@ class Data:
 		self.config = config
 		self.video = VideoFeatures(config)
 	
-	# TODO: add test features and labels when availiable
+	# TODO: add test features and labels when available
 	def load_data(self):
 		"""
 			Loads all data depending on parameters provided in the config file.
@@ -34,12 +37,40 @@ class Data:
 		elif audio_features:
 			X_train, X_dev = self.load_audio_features()
 		
+		# Split the labels according to indexes
 		y = self.load_labels()
 		y_train = y.loc[X_train.index.get_level_values(0)]
 		y_dev = y.loc[X_dev.index.get_level_values(0)]
+		
+		X_train, X_dev = self.preprocess(X_train, X_dev)
 	
 		return X_train, y_train, X_dev, y_dev
 	
+	def preprocess(self, X_train, X_dev):
+		"""
+			Scale and reduce dimensionality of input features
+			
+			Parameters:
+			-----------
+			X_train, X_dev : ndarray (n, n_features)
+			Arrays of input features where each row should be a single feature set
+			
+			Returns
+			-------
+			X_train, X_dev : ndarray (n, n_in)
+				Scaled and reduced features
+		"""
+		# TODO: Investigate where as features actually follow Normal Distribution
+		scaler = StandardScaler().fit(X_train)
+		X_train = scaler.transform(X_train)
+		X_dev = scaler.transform(X_dev)
+		
+		pca = PCA(n_components=self.config['n_in']).fit(X_train)
+		X_train = pca.transform(X_train)
+		X_dev = pca.transform(X_dev)
+		
+		return X_train, X_dev
+		
 	def load_labels(self):
 		"""
 			Loads all of the labels for all data parts (test, train and dev)
@@ -62,6 +93,7 @@ class Data:
 	def load_video_features(self):
 		video_train = self.video.get_videos(data_part='Training')
 		video_dev = self.video.get_videos(data_part='Development')
+		video_train.index = self.filename_to_index(video_train.index)
 		video_dev.index = self.filename_to_index(video_dev.index)
 		return video_train, video_dev
 	
