@@ -11,6 +11,7 @@ dependencies:
   - scikit-learn
   - matplotlib
   - pip:
+    - mlflow
     - pydub
     - librosa
     - Signal_Analysis

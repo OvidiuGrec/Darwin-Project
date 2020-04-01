@@ -6,3 +6,5 @@
 *.mp4
 
 __pycache__/
+
+*.pic

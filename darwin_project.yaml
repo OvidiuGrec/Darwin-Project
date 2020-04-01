@@ -1,2 +1,5 @@
 name: darwin
 conda_env: darwin_env.yaml
+entry_points:
+  main:
+    command: "python pipeline.py"
