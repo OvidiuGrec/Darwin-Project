@@ -14,8 +14,8 @@ from helper import save_to_file, load_from_file
 
 class AudioFeatures:
     def __init__(self, config):
-        self.allowed_features = ['avec', 'xcorr', 'mfcc']
-        self.allowed_prefixes = tuple(['eegmaps', 'xcorr'])
+        self.allowed_features = ['avec', 'xcorr', 'mfcc', 'xcorr_toolkit']
+        self.allowed_prefixes = tuple(['egemaps', 'xcorr'])
 
         folders = config['folders']
         self.raw_audio_dir = Path(folders['raw_audio_folder']) if 'raw_audio_folder' in folders else None
@@ -25,11 +25,8 @@ class AudioFeatures:
 
         self.features_dir = Path(folders['audio_folder'])
         self.feature_type = config['general']['audio_features'].lower()
-<<<<<<< HEAD
+
         if self.feature_type not in self.allowed_features and not self.feature_type.startswith(self.allowed_prefixes):
-=======
-        if self.feature_type not in ['avec', 'xcorr', 'xcorr_toolkit'] and not self.feature_type.startswith('egemaps'):
->>>>>>> fixed toolkit features
             raise ValueError("feature_type should be either 'AVEC', 'XCORR', 'EGEMAPS' or 'EGEMAPS_X'")
         self.__setup_opensmile()
 
