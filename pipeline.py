@@ -23,8 +23,8 @@ class Pipeline:
                 A multilevel dictionary of model parameters for each specified model
         """
         pars = {
-            'LR': {'normalize': True},
-            'PLS': {'n_components': 2}
+            'LR': {'train': {'normalize': True}},
+            'PLS': {'train': {'n_components': 2}}
         }
         """
         Example pars for neural network:
@@ -84,7 +84,6 @@ class Pipeline:
         config['config_location'] = file_location
         
         config['experiment'] = parser.get("parameters", "experiment")
-        config['model_type'] = parser.get("parameters", "model_type")
         config['model_name'] = parser.get("parameters", "model_name")
         config['model_weights'] = parser.get("parameters", "model_weights")
         config['video_features'] = parser.get("parameters", "video_features")
@@ -92,6 +91,7 @@ class Pipeline:
         config['n_in'] = parser.getint("parameters", "n_in")
         
         config['raw_video_folder'] = parser.get("folders", "raw_video_folder")
+        config['facial_data'] = parser.get("folders", "facial_data")
         config['video_folder'] = parser.get("folders", "video_folder")
         config['audio_folder'] = parser.get("folders", "audio_folder")
         config['labels_folder'] = parser.get("folders", "labels_folder")

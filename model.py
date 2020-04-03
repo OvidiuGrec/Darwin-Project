@@ -4,7 +4,6 @@ from sklearn.cross_decomposition import PLSRegression
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-import keras
 from keras.models import Sequential
 from keras.layers import Dense
 
@@ -39,10 +38,7 @@ class DepressionModel:
 			model_name = self.model_names[i]
 			model = self.models[i]
 			
-			if model_type == 'sklearn':
-				model.fit(X, y)
-			elif model_type == 'keras':
-				model.fit(X, y, **self.pars[model_name]['train'])
+			model.fit(X, y, **self.pars[model_name]['train'])
 	
 	def predict(self, X):
 		n_models = len(self.models)

@@ -24,7 +24,7 @@ class VideoFeatures:
 		self.fdhh = bool(fdhh)
 		self.feature_folder = f'{self.config["video_folder"]}/{self.vgg_v}_{self.vgg_l}'
 		
-	def get_videos(self, data_part):
+	def get_video_data(self, data_part):
 		"""
 			Retruns video feature data depending on parameter provided in config file.
 			Performs fdhh algorithm if required otherwise return raw video (WARNING: Potential RAM overflow)
@@ -53,25 +53,42 @@ class VideoFeatures:
 		else:
 			# TODO: Aggregate all raw video data (Maybe use Tensorflow generator?)
 			return None
-		
-	def save_all_videos(self):
+	
+	def encode_videos(self):
 		"""
 			Extracts vgg encoding from each of the frames in each video and stores those in a separate folder.
 			Only need to be ran once for each vgg model.
 		"""
 		
+		faces_folder = self.config['facial_data']
+		
+		for (dirpath, _, filenames) in os.walk(faces_folder):
+			split_path = dirpath.split('\\')
+			if filenames:
+				for file in filenames:
+					file_path = (f'{self.feature_folder}/{split_path[-2]}', f'{file[:14]}.pic')
+					if file.endswith('.pic') and not os.path.exists(f'{file_path[0]}/{file_path[1]}'):
+						print(f'Extracting features from {file}')
+						faces = load_from_file(f'{dirpath}/{file}')
+						encoding = self.vggface_encoding(faces)
+						save_to_file(file_path[0], file_path[1], encoding)
+		
+	def save_video_faces(self):
+		"""
+			Extracts facial data from videos for each frame and save in a separate folder
+		"""
 		raw_video_folder = self.config['raw_video_folder']
+		faces_folder = self.config['facial_data']
 		
 		for (dirpath, _, filenames) in os.walk(raw_video_folder):
 			split_path = dirpath.split('\\')
 			if filenames:
 				for file in filenames:
-					file_path = (f'{self.feature_folder}/{split_path[-2]}', f'{file[:14]}.pic')
-					if file.endswith('.mp4') and not os.path.exists(f'{file_path[0]}/{file_path[1]}'):
-						print(f'Encoding video from {file}')
+					save_path = (f'{faces_folder}/{split_path[-2]}', f'{file[:14]}.pic')
+					if file.endswith('.mp4') and not os.path.exists(f'{save_path[0]}/{save_path[1]}'):
+						print(f'Extracting faces from {file}')
 						faces = self.video_faces(f'{dirpath}/{file}')
-						encoding = self.vggface_encoding(faces)
-						save_to_file(file_path[0], file_path[1], encoding)
+						save_to_file(save_path[0], save_path[1], faces)
 				
 	def video_faces(self, video_file):
 		"""
