@@ -1,0 +1,20 @@
+form Title of the dialog window
+   sentence input_path
+   sentence output_path
+endform
+
+sound = Read from file: input_path$
+dur = Get total duration
+writeFileLine: output_path$, dur
+i = 1
+repeat
+	start = 0.01 * (i - 1)
+	end = 0.01 * i
+	selectObject: sound
+	soundSlice = Extract part: start, end, "rectangular", 1, 1
+	To Spectrum
+	To PowerCepstrum
+	prominence = Get peak prominence: 60, 333.3, "Parabolic", 0.002, 0.00, "Straight", "Robust slow"
+	appendFileLine: output_path$, prominence
+	i = i + 1
+until i > dur * 100
