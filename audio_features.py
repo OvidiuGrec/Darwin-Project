@@ -12,7 +12,6 @@ from pydub import AudioSegment
 from helper import save_to_file, load_from_file
 
 class AudioFeatures:
-    
     def __init__(self, config):
         self.allowed_features = ['avec', 'xcorr', 'mfcc']
         self.allowed_prefixes = tuple(['eegmaps', 'xcorr'])
