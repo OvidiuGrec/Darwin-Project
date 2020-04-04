@@ -13,7 +13,6 @@ class DepressionModel:
 	def __init__(self, config, pars=None):
 		self.config = config
 		self.pars = pars
-		self.model_types = config['model_type'].split('+')
 		self.model_names = config['model_name'].split('+')
 		self.model_weights = [float(v) for v in config['model_weights'].split('+')]
 		self.models = self.get_models()
@@ -34,10 +33,8 @@ class DepressionModel:
 	
 	def train(self, X, y):
 		for i in range(len(self.models)):
-			model_type = self.model_types[i]
 			model_name = self.model_names[i]
 			model = self.models[i]
-			
 			model.fit(X, y, **self.pars[model_name]['train'])
 	
 	def predict(self, X):
@@ -66,14 +63,14 @@ class DepressionModel:
 		
 	def PLS(self):  # Partial Least Squares
 		try:
-			pls2 = PLSRegression(**self.pars['PLS'])
+			pls2 = PLSRegression(**self.pars['PLS']['model'])
 		except KeyError:
 			pls2 = None
 		return pls2
 	
 	def LR(self):  # LinearRegression
 		try:
-			reg = LinearRegression(**self.pars['LR'])
+			reg = LinearRegression(**self.pars['LR']['model'])
 		except KeyError:
 			reg = None
 		return reg

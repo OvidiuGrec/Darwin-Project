@@ -23,8 +23,8 @@ class Pipeline:
                 A multilevel dictionary of model parameters for each specified model
         """
         pars = {
-            'LR': {'train': {'normalize': True}},
-            'PLS': {'train': {'n_components': 2}}
+            'LR': {'model': {'normalize': True}},
+            'PLS': {'model': {'n_components': 2}}
         }
         """
         Example pars for neural network:
