@@ -91,8 +91,8 @@ class Data:
 		return labels.transpose()
 		
 	def load_video_features(self):
-		video_train = self.video.get_videos(data_part='Training')
-		video_dev = self.video.get_videos(data_part='Development')
+		video_train = self.video.get_video_data(data_part='Training')
+		video_dev = self.video.get_video_data(data_part='Development')
 		video_train.index = self.filename_to_index(video_train.index)
 		video_dev.index = self.filename_to_index(video_dev.index)
 		return video_train, video_dev
