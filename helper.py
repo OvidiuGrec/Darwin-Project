@@ -3,16 +3,17 @@ import pandas as pd
 import pickle
 import os
 
+from pathlib import Path
+
 
 def save_to_file(folder, file_name, data):
-
 	if not os.path.exists(folder):
 		os.makedirs(folder)
 
 	if isinstance(data, pd.DataFrame):
-		data.to_pickle(f'{folder}/{file_name}')
+		data.to_pickle(Path(folder, file_name))
 	else:
-		with open(f'{folder}/{file_name}', 'wb') as f:
+		with open(Path(folder, file_name), 'wb') as f:
 			pickle.dump(data, f)
 
 
