@@ -35,7 +35,7 @@ class DepressionModel:
 		for i in range(len(self.models)):
 			model_name = self.model_names[i]
 			model = self.models[i]
-			model.fit(X, y, **self.pars[model_name]['train'])
+			self.models[i] = model.fit(X, y, **self.pars[model_name]['train'])
 	
 	def predict(self, X):
 		n_models = len(self.models)

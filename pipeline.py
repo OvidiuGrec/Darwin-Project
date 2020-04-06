@@ -23,8 +23,8 @@ class Pipeline:
                 A multilevel dictionary of model parameters for each specified model
         """
         pars = {
-            'LR': {'model': {'normalize': True}},
-            'PLS': {'model': {'n_components': 2}}
+            'LR': {'model': {'normalize': True}, 'train': {}},
+            'PLS': {'model': {'n_components': 2}, 'train': {}}
         }
         """
         Example pars for neural network:
@@ -95,11 +95,11 @@ class Pipeline:
         config['video_folder'] = parser.get("folders", "video_folder")
         config['audio_folder'] = parser.get("folders", "audio_folder")
         config['labels_folder'] = parser.get("folders", "labels_folder")
+        config['models_folder'] = parser.get("folders", "models_folder")
     
         return config
 
 
 if __name__ == '__main__':
-    self = Pipeline()
-
-
+    pipe = Pipeline()
+    pipe.run_experiment()

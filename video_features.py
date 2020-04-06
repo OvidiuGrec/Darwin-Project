@@ -40,15 +40,31 @@ class VideoFeatures:
 				An array of faces corresponding to each frame in the video. Leaves nan values if a face is missing
 		"""
 		
-		folder = f'{self.feature_folder}/{data_part}'
-		files = os.listdir(folder)
+		data_path = f'{self.feature_folder}/{data_part}'
+		scaler_path = (self.config['models_folder'], f'{self.vgg_v}_{self.vgg_l}_scaler')
 		
+		if not os.path.exists(data_path):
+			self.encode_videos()
+			
+		if data_part == 'Training':
+			scaler = self.video_min_max(data_path)
+			save_to_file(scaler_path[0], scaler_path[1], scaler)
+		else:
+			scaler = load_from_file(f'{scaler_path[0]}/{scaler_path[1]}')
+			
+		files = os.listdir(data_path)
 		if self.fdhh:
-			fdhh_data = pd.DataFrame()
-			for file in files:
-				video_data = load_from_file(f'{folder}/{file}')
-				fdhh_data[file[:-4]] = self.FDHH(video_data).flatten()  # TODO: scale data before FDHH
-			return fdhh_data.transpose()  # TODO: Maybe save FDHH features as well if this is taking too long
+			fdhh_path = (f'{self.feature_folder}_FD', f'{data_part}.pic')
+			if os.path.exists(f'{fdhh_path[0]}/{fdhh_path[1]}'):
+				fdhh_data = load_from_file(f'{fdhh_path[0]}/{fdhh_path[1]}')
+			else:
+				fdhh_data = pd.DataFrame()
+				for file in files:
+					video_data = scaler.transform(load_from_file(f'{data_path}/{file}'))
+					fdhh_data[file[:-4]] = self.FDHH(video_data).flatten()
+				fdhh_data = fdhh_data.transpose()
+				save_to_file(fdhh_path[0], fdhh_path[1], fdhh_data)
+			return fdhh_data
 		
 		else:
 			# TODO: Aggregate all raw video data (Maybe use Tensorflow generator?)
@@ -69,26 +85,9 @@ class VideoFeatures:
 					file_path = (f'{self.feature_folder}/{split_path[-2]}', f'{file[:14]}.pic')
 					if file.endswith('.pic') and not os.path.exists(f'{file_path[0]}/{file_path[1]}'):
 						print(f'Extracting features from {file}')
-						faces = load_from_file(f'{dirpath}/{file}')
+						faces = self.video_faces(f'{dirpath}/{file}')
 						encoding = self.vggface_encoding(faces)
 						save_to_file(file_path[0], file_path[1], encoding)
-		
-	def save_video_faces(self):
-		"""
-			Extracts facial data from videos for each frame and save in a separate folder
-		"""
-		raw_video_folder = self.config['raw_video_folder']
-		faces_folder = self.config['facial_data']
-		
-		for (dirpath, _, filenames) in os.walk(raw_video_folder):
-			split_path = dirpath.split('\\')
-			if filenames:
-				for file in filenames:
-					save_path = (f'{faces_folder}/{split_path[-2]}', f'{file[:14]}.pic')
-					if file.endswith('.mp4') and not os.path.exists(f'{save_path[0]}/{save_path[1]}'):
-						print(f'Extracting faces from {file}')
-						faces = self.video_faces(f'{dirpath}/{file}')
-						save_to_file(save_path[0], save_path[1], faces)
 				
 	def video_faces(self, video_file):
 		"""
@@ -225,7 +224,7 @@ class VideoFeatures:
 		frames, components = video.shape  # (N, C) in the paper
 		pattern_len = 5  # (M) in the paper
 		# TODO: Investigate this value... Suggested to use if features are [0, 1]
-		thresh = 1 / 40  # (T) in the paper
+		thresh = 1 / 256  # (T) in the paper
 		
 		dynamics = np.abs(video[1:] - video[:-1])
 		binary_d = np.where(dynamics > thresh, 1, 0).T  # (D(c,n)) in the paper
@@ -244,4 +243,15 @@ class VideoFeatures:
 					fdhh[c, pattern_len - 1] += 1
 					count = 0
 		
-		return fdhh  # /frames  # TODO: test with normalization
+		return fdhh/frames  # TODO: test with normalization
+	
+	def video_min_max(self, folder):
+		
+		files = os.listdir(folder)
+		scaler = MinMaxScaler()
+		
+		for file in files:
+			video_data = load_from_file(f'{folder}/{file}')
+			scaler.partial_fit(video_data)
+		
+		return scaler

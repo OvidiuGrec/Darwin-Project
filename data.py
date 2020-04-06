@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 
+from scipy.stats import boxcox
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 
@@ -42,7 +43,7 @@ class Data:
 		y_train = y.loc[X_train.index.get_level_values(0)]
 		y_dev = y.loc[X_dev.index.get_level_values(0)]
 		
-		X_train, X_dev = self.preprocess(X_train, X_dev)
+		X_train, X_dev = self.preprocess(X_train.values, X_dev.values)
 	
 		return X_train, y_train, X_dev, y_dev
 	
@@ -60,7 +61,14 @@ class Data:
 			X_train, X_dev : ndarray (n, n_in)
 				Scaled and reduced features
 		"""
-		# TODO: Investigate where as features actually follow Normal Distribution
+		train_shape = X_train.shape
+		dev_shape = X_dev.shape
+		sv = 0.0000001  # Used to add before boxcox transformation to ensure all values are positive
+		
+		X_train, maxlog = boxcox(X_train.flatten() + sv)
+		X_train = X_train.reshape(train_shape)
+		X_dev = boxcox(X_dev.flatten() + sv, maxlog).reshape(dev_shape)
+		
 		scaler = StandardScaler().fit(X_train)
 		X_train = scaler.transform(X_train)
 		X_dev = scaler.transform(X_dev)
@@ -68,6 +76,8 @@ class Data:
 		pca = PCA(n_components=self.config['n_in']).fit(X_train)
 		X_train = pca.transform(X_train)
 		X_dev = pca.transform(X_dev)
+		
+		# TODO: Scale data after PCA.
 		
 		return X_train, X_dev
 		
