@@ -42,6 +42,10 @@ class VideoFeatures:
 		
 		data_path = f'{self.feature_folder}/{data_part}'
 		scaler_path = (self.config['models_folder'], f'{self.vgg_v}_{self.vgg_l}_scaler')
+		fdhh_path = (f'{self.feature_folder}_FD', f'{data_part}.pic')
+		
+		if self.fdhh and os.path.exists(f'{fdhh_path[0]}/{fdhh_path[1]}'):
+			return load_from_file(f'{fdhh_path[0]}/{fdhh_path[1]}')
 		
 		if not os.path.exists(data_path):
 			self.encode_videos()
@@ -54,16 +58,12 @@ class VideoFeatures:
 			
 		files = os.listdir(data_path)
 		if self.fdhh:
-			fdhh_path = (f'{self.feature_folder}_FD', f'{data_part}.pic')
-			if os.path.exists(f'{fdhh_path[0]}/{fdhh_path[1]}'):
-				fdhh_data = load_from_file(f'{fdhh_path[0]}/{fdhh_path[1]}')
-			else:
-				fdhh_data = pd.DataFrame()
-				for file in files:
-					video_data = scaler.transform(load_from_file(f'{data_path}/{file}'))
-					fdhh_data[file[:-4]] = self.FDHH(video_data).flatten()
-				fdhh_data = fdhh_data.transpose()
-				save_to_file(fdhh_path[0], fdhh_path[1], fdhh_data)
+			fdhh_data = pd.DataFrame()
+			for file in files:
+				video_data = scaler.transform(load_from_file(f'{data_path}/{file}'))
+				fdhh_data[file[:-4]] = self.FDHH(video_data).flatten()
+			fdhh_data = fdhh_data.transpose()
+			save_to_file(fdhh_path[0], fdhh_path[1], fdhh_data)
 			return fdhh_data
 		
 		else:
@@ -76,9 +76,9 @@ class VideoFeatures:
 			Only need to be ran once for each vgg model.
 		"""
 		
-		faces_folder = self.config['facial_data']
+		folder = self.config['raw_video_folder']
 		
-		for (dirpath, _, filenames) in os.walk(faces_folder):
+		for (dirpath, _, filenames) in os.walk(folder):
 			split_path = dirpath.split('\\')
 			if filenames:
 				for file in filenames:
