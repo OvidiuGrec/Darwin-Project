@@ -148,13 +148,13 @@ class AudioFeatures:
 
         if partition == "training":
             # fix broken key
-            f_free.loc["205_1"] = f_free.loc["205_2"]
-            f_free = f_free.drop("205_2")
+            f_north.loc["205_2"] = f_north.loc["205_1"]
+            f_north = f_north.drop("205_1")
 
         if partition == "development":
             # fix broken key
-            f_free.loc["205_2"] = f_free.loc["205_1"]
-            f_free = f_free.drop("205_1")
+            f_north.loc["205_1"] = f_north.loc["205_2"]
+            f_north = f_north.drop("205_2")
 
         if task_merging in ['concat', 'mean']:
             f_free.index = [f'{i}_Combined' for i in f_free.index]
