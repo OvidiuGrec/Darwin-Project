@@ -224,7 +224,7 @@ class VideoFeatures:
 		frames, components = video.shape  # (N, C) in the paper
 		pattern_len = 5  # (M) in the paper
 		# TODO: Investigate this value... Suggested to use if features are [0, 1]
-		thresh = 1 / 256  # (T) in the paper
+		thresh = 1 / 255  # (T) in the paper
 		
 		dynamics = np.abs(video[1:] - video[:-1])
 		binary_d = np.where(dynamics > thresh, 1, 0).T  # (D(c,n)) in the paper
@@ -243,7 +243,7 @@ class VideoFeatures:
 					fdhh[c, pattern_len - 1] += 1
 					count = 0
 		
-		return fdhh/frames  # TODO: test with normalization
+		return fdhh
 	
 	def video_min_max(self, folder):
 		

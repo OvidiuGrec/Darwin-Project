@@ -10,3 +10,7 @@ __pycache__/
 *.pic
 
 *.7z
+
+Config/config.ini
+
+mlruns/
