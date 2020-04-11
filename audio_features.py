@@ -168,7 +168,7 @@ class AudioFeatures:
             return df.groupby(df.index).mean()
         elif not task_merging:
             f_free.index = [f'{i}_Freeform' for i in f_free.index]
-            f_north.index = [f'{i}_Northwind' for i in f_north.index]
+            f_north.index = [f'{i}_Northwin' for i in f_north.index]
             return pd.concat([f_free, f_north], sort=False)
 
     def __csv_extract_headers(self, path):

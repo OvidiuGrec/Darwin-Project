@@ -125,7 +125,12 @@ class Data:
 		audio_dev = self.audio.get_features('development')
 		audio_train.index = self.filename_to_index(audio_train.index)
 		audio_dev.index = self.filename_to_index(audio_dev.index)
+		audio_train = self.combine_tasks(audio_train)
+		audio_dev = self.combine_tasks(audio_dev)
 		return audio_train, audio_dev
+
+	# @staticmethod
+	# def combine_features():
 
 	@staticmethod
 	def combine_tasks(data):
