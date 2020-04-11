@@ -21,10 +21,6 @@ class AudioFeatures:
         self.seg_audio_dir = Path(config['seg_audio_folder']) if 'seg_audio_folder' in config else None
         self.features_dir = Path(config['audio_folder'])
 
-        self.task_merging = config['task_merging'].lower() if 'task_merging' in config else None
-        if self.task_merging and not self.task_merging in ['concat', 'mean']:
-            raise ValueError("avec_task_merging should be either 'CONCAT', 'MEAN' or empty")
-
         self.feature_type = config['audio_features'].lower()
         if not self.feature_type in ['avec', 'xcorr', 'egemaps']:
             raise ValueError("feature_type should be either 'AVEC', 'XCORR' or 'EGEMAPS'")
@@ -135,9 +131,9 @@ class AudioFeatures:
                 self.extract_opensmile_features()
             self.build_feature_sets()
 
-        return self.__load_features(partition, self.task_merging)
+        return self.__load_features(partition)
 
-    def __load_features(self, partition, task_merging):
+    def __load_features(self, partition):
         file_dir = self.features_dir / self.feature_type
 
         f_free = load_from_file(file_dir / f'{partition}_freeform.pkl')
@@ -156,20 +152,9 @@ class AudioFeatures:
             f_north.loc["205_1"] = f_north.loc["205_2"]
             f_north = f_north.drop("205_2")
 
-        if task_merging in ['concat', 'mean']:
-            f_free.index = [f'{i}_Combined' for i in f_free.index]
-            f_north.index = [f'{i}_Combined' for i in f_north.index]
-
-        if task_merging == 'concat':
-            f_north.columns = [f'{i}_n' for i in f_north.columns]
-            return pd.merge(f_free, f_north, left_index=True, right_index=True)
-        elif task_merging == 'mean':
-            df = pd.concat([f_free, f_north], sort=False)
-            return df.groupby(df.index).mean()
-        elif not task_merging:
-            f_free.index = [f'{i}_Freeform' for i in f_free.index]
-            f_north.index = [f'{i}_Northwin' for i in f_north.index]
-            return pd.concat([f_free, f_north], sort=False)
+        f_free.index = [f'{i}_Freeform' for i in f_free.index]
+        f_north.index = [f'{i}_Northwin' for i in f_north.index]
+        return pd.concat([f_free, f_north], sort=False)
 
     def __csv_extract_headers(self, path):
         headers = []
