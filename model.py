@@ -5,7 +5,9 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 from keras.models import Sequential
-from keras.layers import Dense
+from keras.layers import Dense, Dropout
+from keras.optimizers import Adam
+from keras.callbacks import EarlyStopping
 
 
 class DepressionModel:
@@ -81,11 +83,11 @@ class DepressionModel:
 			pars = self.pars['FNN']['model']
 			model = Sequential()
 			model.add(Dense(pars['l1'], input_dim=self.n_features, activation='relu'))
-			model.add(Dense(pars['l2'], activation='relu'))
+			model.add(Dropout(pars['d1']))
 			model.add(Dense(1, activation='linear'))
 			
-			model.compile(loss='mean_squared_error', optimizer='adam',
-			              metrics=['mean_squared_error', 'mean_absolute_error'])
+			model.compile(loss='mean_absolute_error', optimizer=Adam(lr=pars['lr']))
+			# self.pars['FNN']['train']['callbacks'] = [EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=100)]
 		except KeyError:
 			model = None
 		return model
