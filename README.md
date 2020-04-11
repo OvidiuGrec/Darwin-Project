@@ -25,11 +25,10 @@ duplicating already existing functionality with a different name.
 
 1. Set a name for experiment
 2. For a single model:
-    1. Specify its type (**keras** or **sklearn**)
     2. Use appropriate model name (Should be same as function name in `model.py`)
     3. Set model weights to 1
     4. Use appropriate name for features
-    5. n_in determines how many components to keep after PCA
+    5. var_ratio determines how many components to keep after PCA
 3. For multiple models:
     1. Separate the models and there attributes by a `+` sign
     2. Make sure model weights add to **1**
@@ -40,3 +39,9 @@ you function to avoid errors.
 trough `data.py` functionality. Make sure the final data is formatted correctly.
 6. Run your experiment and look up the results by running `mlflow ui` in same directory
 as **mlruns** folder
+
+## Optimizing your model
+You can optimize your code by running `pipelie.optimize` and selecting parameter appropriately. Use a **tuple** 
+to determine **min** and **max** for each of the desired parameters. For example `(100, 1000)` will search
+for the best parameter in range between **100** and **1000**. The optimization uses a Bayesian Optimization technique 
+and more information can be found [here](https://github.com/fmfn/BayesianOptimization).
