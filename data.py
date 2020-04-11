@@ -70,12 +70,12 @@ class Data:
 		dev_shape = X_dev.shape
 		# Used to add before boxcox transformation to ensure all values are positive
 		sv = -np.min(np.vstack((X_train, X_dev))) + 0.0000001
-
+		"""
 		X_train, maxlog = boxcox(X_train.flatten() + sv)
 		X_train = X_train.reshape(train_shape)
 		X_dev = boxcox(X_dev.flatten() + sv, maxlog).reshape(dev_shape)
-		
-		scaler = StandardScaler().fit(X_train)
+		"""
+		scaler = MinMaxScaler().fit(X_train)
 		X_train = scaler.transform(X_train)
 		X_dev = scaler.transform(X_dev)
 		

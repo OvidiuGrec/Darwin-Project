@@ -245,7 +245,8 @@ class VideoFeatures:
 		
 		return fdhh
 	
-	def video_min_max(self, folder):
+	@staticmethod
+	def video_min_max(folder):
 		
 		files = os.listdir(folder)
 		scaler = MinMaxScaler()

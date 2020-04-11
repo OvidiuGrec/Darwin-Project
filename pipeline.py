@@ -23,7 +23,7 @@ class Pipeline:
         """
         pars = {
             'LR': {'model': {'normalize': True}, 'train': {}},
-            'PLS': {'model': {'n_components': 3}, 'train': {}}
+            'PLS': {'model': {'n_components': 5}, 'train': {}}
         }
         """
         Example pars for neural network:
@@ -103,11 +103,9 @@ class Pipeline:
         config['labels_folder'] = parser.get("folders", "labels_folder")
         config['models_folder'] = parser.get("folders", "models_folder")
 
-        config['task_merging'] = parser.get('features', 'avec_task_merging')
-
         return config
 
 
 if __name__ == '__main__':
     pipe = Pipeline()
-    # pipe.run_experiment()
+    pipe.run_experiment()
