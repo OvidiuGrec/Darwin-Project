@@ -110,4 +110,4 @@ class Pipeline:
 
 if __name__ == '__main__':
     pipe = Pipeline()
-    pipe.run_experiment()
+    # pipe.run_experiment()
