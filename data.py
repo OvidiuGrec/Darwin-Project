@@ -36,9 +36,8 @@ class Data:
 		if audio_features and video_features:
 			video_train, video_dev = self.load_video_features()
 			audio_train, audio_dev = self.load_audio_features()
-			# TODO: Combine audio and video features
-			# X_train = self.combine_features(video_train, audio_train)
-			# X_dev = self.combine_features(video_dev, audio_dev)
+			X_train = self.combine_features(video_train, audio_train)
+			X_dev = self.combine_features(video_dev, audio_dev)
 		elif video_features:
 			X_train, X_dev = self.load_video_features()
 		elif audio_features:
@@ -129,8 +128,10 @@ class Data:
 		audio_dev = self.combine_tasks(audio_dev)
 		return audio_train, audio_dev
 
-	# @staticmethod
-	# def combine_features():
+	@staticmethod
+	def combine_features(video, audio):
+		audio.index = video.index
+		return pd.concat([video, audio], axis=1)
 
 	@staticmethod
 	def combine_tasks(data):

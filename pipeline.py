@@ -48,7 +48,7 @@ class Pipeline:
                            'weight': self.config['model_weights'],
                            'video': self.config['video_features'],
                            'audio': self.config['audio_features'],
-                           'var_ratio': self.config['var_ratio'],
+                           'var_ratio': str(self.config['var_ratio']),
                            'n_features': str(input_shape[1])})
                            
         model = DepressionModel(self.config, input_shape, pars=self.pars)
@@ -92,7 +92,7 @@ class Pipeline:
         config['model_weights'] = parser.get("parameters", "model_weights")
         config['video_features'] = parser.get("parameters", "video_features")
         config['audio_features'] = parser.get("parameters", "audio_features")
-        config['var_ratio'] = parser.get("parameters", "var_ratio")
+        config['var_ratio'] = parser.getfloat("parameters", "var_ratio")
         
         config['raw_video_folder'] = parser.get("folders", "raw_video_folder")
         config['raw_audio_folder'] = parser.get("folders", "raw_audio_folder")
