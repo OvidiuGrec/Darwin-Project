@@ -81,7 +81,7 @@ class Data:
 		X_dev = scaler.transform(X_dev)
 		
 		pca = PCA().fit(X_train)
-		n_components = np.where(np.cumsum(pca.explained_variance_ratio_) > 0.94)[0][3]
+		n_components = np.where(np.cumsum(pca.explained_variance_ratio_) > self.config['var_ratio'])[0][3]
 		pca = PCA(n_components=n_components).fit(X_train)
 		X_train = pca.transform(X_train)
 		X_dev = pca.transform(X_dev)

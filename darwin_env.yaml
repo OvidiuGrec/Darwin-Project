@@ -1,6 +1,7 @@
 name: darwin
 channels:
   - defaults
+  - conda-forge
 dependencies:
   - python==3.7
   - pip==20.0.2
@@ -10,11 +11,11 @@ dependencies:
   - numpy
   - scikit-learn
   - matplotlib
+  - librosa
+  - pydub
+  - progressbar2
   - pip:
     - mlflow
-    - pydub
-    - progressbar2
-    - librosa
     - Signal_Analysis
     - mtcnn
     - git+https://github.com/rcmalli/keras-vggface.git
