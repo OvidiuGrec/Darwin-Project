@@ -1,8 +1,9 @@
 import os
+import numpy as np
 import pandas as pd
 
 from scipy.stats import boxcox
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.decomposition import PCA
 
 from video_features import VideoFeatures
@@ -73,11 +74,15 @@ class Data:
 		X_train = scaler.transform(X_train)
 		X_dev = scaler.transform(X_dev)
 		
-		pca = PCA(n_components=self.config['n_in']).fit(X_train)
+		pca = PCA().fit(X_train)
+		n_components = np.where(np.cumsum(pca.explained_variance_ratio_) > 0.94)[0][3]
+		pca = PCA(n_components=n_components).fit(X_train)
 		X_train = pca.transform(X_train)
 		X_dev = pca.transform(X_dev)
 		
-		# TODO: Scale data after PCA.
+		scaler = MinMaxScaler().fit(X_train)
+		X_train = scaler.transform(X_train)
+		X_dev = scaler.transform(X_dev)
 		
 		return X_train, X_dev
 		
@@ -105,12 +110,38 @@ class Data:
 		video_dev = self.video.get_video_data(data_part='Development')
 		video_train.index = self.filename_to_index(video_train.index)
 		video_dev.index = self.filename_to_index(video_dev.index)
+		video_train = self.combine_tasks(video_train)
+		video_dev = self.combine_tasks(video_dev)
 		return video_train, video_dev
 	
 	def load_audio_features(self):
 		# TODO: load different audio featuers
 		return None
 	
+	@staticmethod
+	def combine_tasks(data):
+		"""
+			Combines data from same tasks
+			----------
+			data: pd.DataFrame
+				Pandas data frame with index | Patient # | Task | and features in columns
+
+			Returns
+			-------
+			combined : pd.DataFrame
+				A pandas data frame with tasks combined into single vector and indexed by | Patient # |
+		"""
+		idx = pd.IndexSlice
+		freeform = data.loc[idx[:, 'Freeform'], :].sort_index().droplevel(1)
+		northwin = data.loc[idx[:, 'Northwin'], :].sort_index().droplevel(1)
+		assert (freeform.index == northwin.index).all(), 'Indexes in two tasks not equal'
+		
+		n_columns = freeform.shape[1]
+		northwin.columns = np.arange(n_columns, n_columns+n_columns)
+		combined = pd.concat([freeform, northwin], axis=1)
+		
+		return combined
+		
 	@staticmethod
 	def filename_to_index(index):
 		"""

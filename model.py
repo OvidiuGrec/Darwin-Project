@@ -10,7 +10,8 @@ from keras.layers import Dense
 
 class DepressionModel:
 	
-	def __init__(self, config, pars=None):
+	def __init__(self, config, input_shape, pars=None):
+		self.n_features = input_shape[1]
 		self.config = config
 		self.pars = pars
 		self.model_names = config['model_name'].split('+')
@@ -79,7 +80,7 @@ class DepressionModel:
 		try:
 			pars = self.pars['FNN']['model']
 			model = Sequential()
-			model.add(Dense(pars['l1'], input_dim=self.config['n_in'], activation='relu'))
+			model.add(Dense(pars['l1'], input_dim=self.n_features, activation='relu'))
 			model.add(Dense(pars['l2'], activation='relu'))
 			model.add(Dense(1, activation='linear'))
 			

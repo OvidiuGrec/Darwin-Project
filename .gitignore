@@ -12,3 +12,5 @@ __pycache__/
 *.7z
 
 Config/config.ini
+
+mlruns/

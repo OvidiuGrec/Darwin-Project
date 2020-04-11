@@ -10,7 +10,6 @@ class Pipeline:
         self.config = self.load_config()
         self.data = Data(self.config)
         self.pars = self.load_pars()
-        self.model = DepressionModel(self.config, pars=self.pars)
     
     @staticmethod
     def load_pars():
@@ -24,7 +23,7 @@ class Pipeline:
         """
         pars = {
             'LR': {'model': {'normalize': True}, 'train': {}},
-            'PLS': {'model': {'n_components': 2}, 'train': {}}
+            'PLS': {'model': {'n_components': 3}, 'train': {}}
         }
         """
         Example pars for neural network:
@@ -38,26 +37,30 @@ class Pipeline:
     def run_experiment(self):
         
         mlflow.set_experiment(self.config['experiment'])
-        with mlflow.start_run():
-            
-            mlflow.log_params({'pars': str(self.pars),
-                               'model': self.config['model_name'],
-                               'weight': self.config['model_weights'],
-                               'video': self.config['video_features'],
-                               'audio': self.config['audio_features'],
-                               'n_in': str(self.config['n_in'])})
-            
-            model = self.model
-            
-            X_train, y_train, X_dev, y_dev = self.data.load_data()
-            model.train(X_train, y_train)
-            
-            # TODO: log metrics through out the run
-            train_mae, train_rmse = model.validate_model(X_train, y_train)
-            dev_mae, dev_rmse = model.validate_model(X_dev, y_dev)
-            
-            mlflow.log_metrics({'train_mae': train_mae, 'train_rmse': train_rmse,
-                                'dev_mae': dev_mae, 'dev_rmse': dev_rmse})
+        
+        mlflow.start_run()
+
+        X_train, y_train, X_dev, y_dev = self.data.load_data()
+        input_shape = X_train.shape
+        
+        mlflow.log_params({'pars': str(self.pars),
+                           'model': self.config['model_name'],
+                           'weight': self.config['model_weights'],
+                           'video': self.config['video_features'],
+                           'audio': self.config['audio_features'],
+                           'n_features': str(input_shape[1])})
+                           
+        model = DepressionModel(self.config, input_shape, pars=self.pars)
+        model.train(X_train, y_train)
+        
+        # TODO: log metrics through out the run
+        train_mae, train_rmse = model.validate_model(X_train, y_train)
+        dev_mae, dev_rmse = model.validate_model(X_dev, y_dev)
+        
+        mlflow.log_metrics({'train_mae': train_mae, 'train_rmse': train_rmse,
+                            'dev_mae': dev_mae, 'dev_rmse': dev_rmse})
+        
+        mlflow.end_run()
         
     @staticmethod
     def load_config(file_location=None):
@@ -88,7 +91,6 @@ class Pipeline:
         config['model_weights'] = parser.get("parameters", "model_weights")
         config['video_features'] = parser.get("parameters", "video_features")
         config['audio_features'] = parser.get("parameters", "audio_features")
-        config['n_in'] = parser.getint("parameters", "n_in")
         
         config['raw_video_folder'] = parser.get("folders", "raw_video_folder")
         config['facial_data'] = parser.get("folders", "facial_data")
