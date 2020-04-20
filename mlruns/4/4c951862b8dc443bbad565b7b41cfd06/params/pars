@@ -1,0 +1,1 @@
+{'LR': {'model': {'normalize': True}, 'train': {}}, 'PLS': {'model': {'n_components': 2}, 'train': {}}}
