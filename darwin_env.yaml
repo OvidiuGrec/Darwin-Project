@@ -15,6 +15,7 @@ dependencies:
   - pydub
   - progressbar2
   - bayesian-optimization
+  - pathlib
   - pip:
     - mlflow
     - Signal_Analysis
