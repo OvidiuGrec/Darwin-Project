@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Darwin-Project/mlruns/4/29f4ecb543b74dab8f66a02eed9f97ab/artifacts
+end_time: 1586524855255
+entry_point_name: ''
+experiment_id: '4'
+lifecycle_stage: active
+name: ''
+run_id: 29f4ecb543b74dab8f66a02eed9f97ab
+run_uuid: 29f4ecb543b74dab8f66a02eed9f97ab
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1586524854972
+status: 3
+tags: []
+user_id: Ovidiu
