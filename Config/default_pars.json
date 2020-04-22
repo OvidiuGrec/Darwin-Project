@@ -1,0 +1,15 @@
+{
+  "LR": {
+    "model": {
+      "normalize": 1
+    },
+    "train": {}
+  },
+
+  "PLS": {
+    "model": {
+      "n_components": [1, 10]
+    },
+    "train": {}
+  }
+}

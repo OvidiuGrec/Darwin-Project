@@ -2,6 +2,7 @@ import os
 import numpy as np
 import mlflow
 from configparser import ConfigParser
+from argparse import ArgumentParser
 from functools import partial
 
 from data import Data
@@ -160,5 +161,5 @@ class Pipeline:
 
 if __name__ == '__main__':
     pipe = Pipeline()
-    pipe.optimize()
+    # pipe.optimize()
     # pipe.run_experiment()

@@ -28,7 +28,7 @@ class VideoFeatures:
 
 	def get_video_data(self, data_part):
 		"""
-			Retruns video feature data depending on parameter provided in config file.
+			Returns video feature data depending on parameter provided in config file.
 			Performs fdhh algorithm if required otherwise return raw video (WARNING: Potential RAM overflow)
 
 			Parameters
