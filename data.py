@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import pandas as pd
-import numpy as np
 
 from scipy.stats import boxcox
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
@@ -27,69 +26,67 @@ class Data:
 
 			Returns
 			-------
-			X_train, y_train, X_dev, y_dev : pd.DataFrame
+			X_train, y_train, X_test, y_test : pd.DataFrame
 				Final feature and label vectors ready for training and testing.
 		"""
 		video_features = self.config['video_features']
 		audio_features = self.config['audio_features']
 
 		if audio_features and video_features:
-			video_train, video_dev = self.load_video_features()
-			audio_train, audio_dev = self.load_audio_features()
-			X_train = self.combine_features(video_train, audio_train)
-			X_dev = self.combine_features(video_dev, audio_dev)
+			video_data = self.load_video_features()
+			audio_data = self.load_audio_features()
+			X = self.combine_features(video_data, audio_data)
 		elif video_features:
-			X_train, X_dev = self.load_video_features()
+			X = self.load_video_features()
 		elif audio_features:
-			X_train, X_dev = self.load_audio_features()
+			X = self.load_audio_features()
 
 		# Split the labels according to indexes
 		y = self.load_labels()
-		y_train = y.loc[X_train.index.get_level_values(0)]
-		y_dev = y.loc[X_dev.index.get_level_values(0)]
 		
-		X_train, X_dev = self.preprocess(X_train.values, X_dev.values)
+		X_train, y_train, X_test, y_test = self.split_data(X, y)
+		X_train, X_test = self.preprocess(X_train, X_test)
 	
-		return X_train, y_train, X_dev, y_dev
+		return X_train, y_train, X_test, y_test
 
-	def preprocess(self, X_train, X_dev):
+	def preprocess(self, X_train, X_test):
 		"""
 			Scale and reduce dimensionality of input features
 
 			Parameters:
 			-----------
-			X_train, X_dev : ndarray (n, n_features)
+			X_train, X_test : ndarray (n, n_features)
 			Arrays of input features where each row should be a single feature set
 
 			Returns
 			-------
-			X_train, X_dev : ndarray (n, n_in)
+			X_train, X_test : ndarray (n, n_in)
 				Scaled and reduced features
 		"""
 		train_shape = X_train.shape
-		dev_shape = X_dev.shape
-		# Used to add before boxcox transformation to ensure all values are positive
-		sv = -np.min(np.vstack((X_train, X_dev))) + 0.0000001
+		test_shape = X_test.shape
 		"""
+		# Used to add before boxcox transformation to ensure all values are positive
+		sv = 1
 		X_train, maxlog = boxcox(X_train.flatten() + sv)
 		X_train = X_train.reshape(train_shape)
-		X_dev = boxcox(X_dev.flatten() + sv, maxlog).reshape(dev_shape)
+		X_test = boxcox(X_test.flatten() + sv, maxlog).reshape(test_shape)
 		"""
 		scaler = MinMaxScaler().fit(X_train)
 		X_train = scaler.transform(X_train)
-		X_dev = scaler.transform(X_dev)
+		X_test = scaler.transform(X_test)
 		
 		pca = PCA().fit(X_train)
-		n_components = np.where(np.cumsum(pca.explained_variance_ratio_) > self.config['var_ratio'])[0][3]
+		n_components = np.where(np.cumsum(pca.explained_variance_ratio_) > self.config['var_ratio'])[0][0]
 		pca = PCA(n_components=n_components).fit(X_train)
 		X_train = pca.transform(X_train)
-		X_dev = pca.transform(X_dev)
+		X_test = pca.transform(X_test)
 		
 		scaler = MinMaxScaler().fit(X_train)
 		X_train = scaler.transform(X_train)
-		X_dev = scaler.transform(X_dev)
+		X_test = scaler.transform(X_test)
 		
-		return X_train, X_dev
+		return X_train, X_test
 
 	def load_labels(self):
 		"""
@@ -111,13 +108,12 @@ class Data:
 		return labels.transpose()
 
 	def load_video_features(self):
-		video_train = self.video.get_video_data(data_part='Training')
-		video_dev = self.video.get_video_data(data_part='Development')
-		video_train.index = self.filename_to_index(video_train.index)
-		video_dev.index = self.filename_to_index(video_dev.index)
-		video_train = self.combine_tasks(video_train)
-		video_dev = self.combine_tasks(video_dev)
-		return video_train, video_dev
+		video_data = list()
+		video_data.append(self.video.get_video_data(data_part='Training'))
+		video_data.append(self.video.get_video_data(data_part='Development'))
+		if self.config['mode'] == 'test':
+			video_data.append(self.video.get_video_data(data_part='Testing'))
+		return self.prep_features(video_data)
 
 	def load_audio_features(self):
 		audio_train = self.audio.get_features('training')
@@ -127,11 +123,33 @@ class Data:
 		audio_train = self.combine_tasks(audio_train)
 		audio_dev = self.combine_tasks(audio_dev)
 		return audio_train, audio_dev
+	
+	@staticmethod
+	def split_data(X, y):
+		if len(X) == 3:
+			X_train = pd.concat([X[0], X[1]])
+			X_test = X[2]
+		else:
+			X_train, X_test = X[0], X[1]
+		
+		y_train = y.loc[X_train.index]
+		y_test = y.loc[X_test.index]
+		
+		return X_train.values, y_train, X_test.values, y_test
+		
+	def prep_features(self, data):
+		for i, part in enumerate(data):
+			part.index = self.filename_to_index(part.index)
+			data[i] = self.combine_tasks(part)
+		return data
 
 	@staticmethod
 	def combine_features(video, audio):
-		audio.index = video.index
-		return pd.concat([video, audio], axis=1)
+		# audio.index = video.index
+		comb_data = []
+		for i in range(len(video)):
+			comb_data.append(pd.concat([video[i], audio[i]], axis=1))
+		return comb_data
 
 	@staticmethod
 	def combine_tasks(data):

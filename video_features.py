@@ -6,9 +6,7 @@ from sys import platform
 
 from sklearn.preprocessing import MinMaxScaler
 from helper import save_to_file, load_from_file
-from pathlib import Path
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from mtcnn import MTCNN
 from keras import Model
 from keras_vggface.vggface import VGGFace
@@ -18,11 +16,9 @@ from keras_vggface.utils import preprocess_input
 class VideoFeatures:
 
 	def __init__(self, config):
-		self.face_detector = MTCNN()
 		self.input_size = (224, 224, 3)
 		self.config = config
 		self.vgg_v, self.vgg_l, fdhh = self.config['video_features'].split('_')
-		self.model = self.get_vggface()
 		self.fdhh = bool(fdhh)
 		self.feature_folder = f'{self.config["video_folder"]}/{self.vgg_v}_{self.vgg_l}'
 
@@ -55,6 +51,10 @@ class VideoFeatures:
 		if data_part == 'Training':
 			scaler = self.video_min_max(data_path)
 			save_to_file(scaler_path[0], scaler_path[1], scaler)
+		elif data_part == 'Development' and self.config['mode'] == 'test':
+			scaler = load_from_file(f'{scaler_path[0]}/{scaler_path[1]}')
+			scaler = self.video_min_max(data_path, scaler)
+			save_to_file(scaler_path[0], scaler_path[1], scaler)
 		else:
 			scaler = load_from_file(f'{scaler_path[0]}/{scaler_path[1]}')
 
@@ -77,7 +77,10 @@ class VideoFeatures:
 			Extracts vgg encoding from each of the frames in each video and stores those in a separate folder.
 			Only need to be ran once for each vgg model.
 		"""
-
+		
+		face_detector = MTCNN()
+		encoder = self.get_vggface()
+		
 		folder = self.config['raw_video_folder']
 
 		for (dirpath, _, filenames) in os.walk(folder):
@@ -89,112 +92,76 @@ class VideoFeatures:
 				split_path = dirpath.split('\\')
 			if filenames:
 				for file in filenames:
-					file_path = (f'{self.feature_folder}/{split_path[-2]}', f'{file[:14]}.pic')
-					face_bb_path = (f'{self.config["facial_data"]}', f'{file[:14]}.pic')
-					# check if the face bounding boxes are already cached
-					if file.endswith('.mp4') and not os.path.exists(f'{face_bb_path[0]}/{face_bb_path[1]}'):
-						# extract face coords
-						faces_bb = self.video_faces_bb(f'{dirpath}/{file}')
-						save_to_file(face_bb_path[0], face_bb_path[1], faces_bb)
-					if file.endswith('.mp4') and not os.path.exists(f'{file_path[0]}/{file_path[1]}'):
+					encode_path = (f'{self.feature_folder}/{split_path[-2]}', f'{file[:14]}.pic')
+					coord_path = (f'{self.config["facial_data"]}', f'{file[:14]}.pic')
+					if file.endswith('.mp4') and not os.path.exists(f'{encode_path[0]}/{encode_path[1]}'):
 						print(f'Extracting features from {file}')
-						faces = self.video_faces(f'{dirpath}/{file}', face_bb_path)
-						encoding = self.vggface_encoding(faces)
-						save_to_file(file_path[0], file_path[1], encoding)
+						faces, coords = self.video_faces(f'{dirpath}/{file}', f'{coord_path[0]}/{coord_path[1]}', face_detector)
+						encoding = self.vggface_encoding(faces, encoder)
+						save_to_file(coord_path[0], coord_path[1], coords)
+						save_to_file(encode_path[0], encode_path[1], encoding.reshape(encoding.shape[0], -1))
 
-	def video_faces_bb(self, video_file):
+	def video_faces(self, video_path, coord_path, face_detector):
 		"""
 			 Extracts faces from a video returning array of rgb images of faces
 
 			 Parameters
 			 ----------
-			 video_file : str
+			 video_path : str
 				 A path to the video file
-
+				 
+			 coord_path : str
+			     Folder location and file name of the file with face coordinates
+			     
+			 face_detector : object
+			     MTCNN network for face detection
+			     
 			 Returns
 			 -------
 			 faces : ndarray (? * 4)
 				 An array of faces corresponding to each frame in the video. Leaves nan values if a face is missing
 		 """
 
-		cap = cv2.VideoCapture(video_file)
-		n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+		cap = cv2.VideoCapture(video_path)
 
 		# Check if camera opened successfully
 		if not cap.isOpened():
 			print("Error opening video stream or file")
-
-		faces = np.empty(shape=(n_frames, 4))
-		faces[:] = np.nan
-
-		i = 0
-		while cap.isOpened():
-			ret, frame = cap.read()
-			if ret:
-				frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-				x1, x2, y1, y2 = self.extract_face(frame)
-				if not (x1 == -1 or x2 == -1 or y1 == -1 or y2 == -1):
-					faces[i][0] = x1
-					faces[i][1] = x2
-					faces[i][2] = y1
-					faces[i][3] = y2
-
-				i += 1
-			else:
-				break
-		cap.release()
-
-		return faces
-
-	def video_faces(self, video_file, face_bb_path):
-		"""
-			Extracts faces from a video returning array of rgb images of faces
-
-			Parameters
-			----------
-			video_file : str
-				A path to the video file
-
-			Returns
-			-------
-			faces : ndarray (? * ? * ? * 3)
-				An array of faces corresponding to each frame in the video. Leaves nan values if a face is missing
-		"""
-
-		cap = cv2.VideoCapture(video_file)
+			return None
+		
 		n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-		# Check if camera opened successfully
-		if not cap.isOpened():
-			print("Error opening video stream or file")
+		coords_present = os.path.exists(coord_path)
+			
+		if coords_present:
+			all_coords = load_from_file(coord_path)
+		else:
+			all_coords = np.empty(shape=(n_frames, 4), dtype=np.int64)
 
 		faces = np.empty(shape=(n_frames, self.input_size[0], self.input_size[1], self.input_size[2]))
 		faces[:] = np.nan
 
-		i = 0
-		face_bbs = load_from_file(f'{face_bb_path[0]}/{face_bb_path[1]}')
+		i = -1
 		while cap.isOpened():
 			ret, frame = cap.read()
 			if ret:
-				frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-				x1, x2, y1, y2 = face_bbs[i]
-				if x1 == -1 or x1 == np.nan:
-					face = None
-				else:
-					face = frame[y1:y2, x1:x2]
-					face = cv2.resize(face, (self.input_size[0], self.input_size[1])).astype(
-						'float64')  # Resize for VGGFace
-
-				if face is not None:
-					faces[i] = face
 				i += 1
+				frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+				if not coords_present:
+					all_coords[i] = self.get_face_coords(frame, face_detector)
+				c = all_coords[i]
+				if (c == -1).all():
+					continue
+				else:
+					face = frame[c[0]:c[1], c[2]:c[3]]
+					faces[i] = cv2.resize(face, (self.input_size[0], self.input_size[1])).astype('float64')
 			else:
 				break
 		cap.release()
 
-		return faces
-
-	def extract_face(self, frame):
+		return faces, all_coords
+	
+	@staticmethod
+	def get_face_coords(frame, face_detector):
 		"""
 			Detects and extracts a face from the image
 
@@ -203,6 +170,8 @@ class VideoFeatures:
 			frame : ndarray (? * ? * 3)
 				An RGB array of image
 				
+			face_detector : MTCNN network for face detection
+				
 			Returns
 			-------
 			face : 4-tuple
@@ -210,31 +179,35 @@ class VideoFeatures:
 		"""
 
 		try:
-			results = self.face_detector.detect_faces(frame)  # Detects faces in the image
+			results = face_detector.detect_faces(frame)  # Detects faces in the image
 
 			x1, y1, width, height = results[0]['box']  # Bounding box of first face
 			x1, y1 = abs(x1), abs(y1)  # bug fix...
 			x2, y2 = x1 + width, y1 + height
-
 		except:
 			x1, x2, y1, y2 = -1, -1, -1, -1
-		return x1, x2, y1, y2
-
-	def vggface_encoding(self, faces):
+		return y1, y2, x1, x2
+	
+	@staticmethod
+	def vggface_encoding(faces, encoder):
 		"""
 			Encodes an image of a face into a lower dimensional representation
 			Parameters
 			----------
 			faces : ndarray (n * 224 * 224 * 3)
 				An array of face images to be encoded
+				
+			encoder : object
+				vgg_model for feature extraction
+				
 			Returns
 			-------
 			encoding : ndarray (n * X)
 				Feature-vector of a face representations
 		"""
 
-		inputs = preprocess_input(faces, version=1)  # TODO: 1 for VGG and 2 for others
-		yhat = self.model.predict(inputs)
+		inputs = preprocess_input(faces, version=2)  # TODO: 1 for VGG and 2 for others
+		yhat = encoder.predict(inputs)
 		return yhat
 
 	def get_vggface(self):
@@ -261,7 +234,7 @@ class VideoFeatures:
 
 		# this returns layer-specific features:
 		wanted_layer = layers_select[self.vgg_l]
-		vgg_model = VGGFace(model=model_select[self.vgg_v], input_shape=(224, 224, 3), include_top=True)
+		vgg_model = VGGFace(model=model_select[self.vgg_v], input_shape=(224, 224, 3), include_top=False)
 
 		out = vgg_model.get_layer(wanted_layer).output
 		vgg_model_custom_layer = Model(inputs=vgg_model.input, outputs=out)
@@ -310,10 +283,11 @@ class VideoFeatures:
 		return fdhh
 
 	@staticmethod
-	def video_min_max(folder):
+	def video_min_max(folder, scaler=None):
 
 		files = os.listdir(folder)
-		scaler = MinMaxScaler()
+		if not scaler:
+			scaler = MinMaxScaler()
 
 		for file in files:
 			video_data = load_from_file(f'{folder}/{file}')

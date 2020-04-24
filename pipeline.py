@@ -1,4 +1,5 @@
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import numpy as np
 import mlflow
 from configparser import ConfigParser
@@ -8,8 +9,6 @@ from functools import partial
 from data import Data
 from model import DepressionModel
 from bayes_opt import BayesianOptimization
-
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
 class Pipeline:
@@ -37,7 +36,7 @@ class Pipeline:
         
         """
         pars = {
-            'FNN': {'model': {'l1': 1000, 'd1': 0.2, 'lr': 0.007},
+            'FNN': {'model': {'l1': 1000, 'd1': 0.2, 'lr': (0.0001, 0.1)},
                     'train': {'epochs': 1000, 'batch_size': 1, 'validation_split': 0.2, 'verbose': 1}}
         }
         """
@@ -70,6 +69,7 @@ class Pipeline:
                                'audio': self.config['audio_features'],
                                'var_ratio': str(self.config['var_ratio']),
                                'n_features': str(input_shape[1])})
+            mlflow.set_tags({'mode': self.config['mode']})
                            
         model = DepressionModel(self.config, input_shape, pars=self.pars)
         model.train(X_train, y_train)
@@ -146,6 +146,7 @@ class Pipeline:
         config['video_features'] = parser.get("parameters", "video_features")
         config['audio_features'] = parser.get("parameters", "audio_features")
         config['var_ratio'] = parser.getfloat("parameters", "var_ratio")
+        config['mode'] = parser.get("parameters", "mode")
         
         config['raw_video_folder'] = parser.get("folders", "raw_video_folder")
         config['raw_audio_folder'] = parser.get("folders", "raw_audio_folder")
@@ -161,5 +162,6 @@ class Pipeline:
 
 if __name__ == '__main__':
     pipe = Pipeline()
+    self = pipe.data
     # pipe.optimize()
-    # pipe.run_experiment()
+    pipe.run_experiment()
