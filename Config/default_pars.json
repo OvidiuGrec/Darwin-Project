@@ -1,15 +1,25 @@
 {
   "LR": {
     "model": {
-      "normalize": 1
+      "normalize": true
     },
     "train": {}
   },
 
   "PLS": {
     "model": {
-      "n_components": [1, 10]
+      "n_components": 5
     },
     "train": {}
+  },
+
+  "FDHH": {
+
+  },
+
+  "PCA": {
+    "audio_feature": 0.995,
+    "video_features": 0.995,
+    "comb_features": 0.94
   }
 }
