@@ -11,11 +11,15 @@ from audio_features import AudioFeatures
 
 class Data:
 
-	def __init__(self, config):
+	def __init__(self, config, options, pars):
+		self.options = options
 		self.config = config
-		if config['video_features']:
-			self.video = VideoFeatures(config)
-		if config['audio_features']:
+		self.pars = pars
+		self.video_features = config['video']['video_features']
+		self.audio_features = config['audio']['audio_features']
+		if self.video_features:
+			self.video = VideoFeatures(config, options, pars)
+		if self.audio_features:
 			self.audio = AudioFeatures(config)
 
 	# TODO: add test features and labels when available
@@ -29,16 +33,14 @@ class Data:
 			X_train, y_train, X_test, y_test : pd.DataFrame
 				Final feature and label vectors ready for training and testing.
 		"""
-		video_features = self.config['video_features']
-		audio_features = self.config['audio_features']
 
-		if audio_features and video_features:
+		if self.audio_features and self.video_features:
 			video_data = self.load_video_features()
 			audio_data = self.load_audio_features()
 			X = self.combine_features(video_data, audio_data)
-		elif video_features:
+		elif self.video_features:
 			X = self.load_video_features()
-		elif audio_features:
+		elif self.audio_features:
 			X = self.load_audio_features()
 
 		# Split the labels according to indexes
@@ -77,7 +79,7 @@ class Data:
 		X_test = scaler.transform(X_test)
 		
 		pca = PCA().fit(X_train)
-		n_components = np.where(np.cumsum(pca.explained_variance_ratio_) > self.config['var_ratio'])[0][0]
+		n_components = np.where(np.cumsum(pca.explained_variance_ratio_) > self.pars['PCA']['combined_components'])[0][0]
 		pca = PCA(n_components=n_components).fit(X_train)
 		X_train = pca.transform(X_train)
 		X_test = pca.transform(X_test)
@@ -98,7 +100,7 @@ class Data:
 				A pandas dataframe of labels with index representing invividual patient
 				and corresponding to the value of there BDI-II score.
 		"""
-		folder = self.config['labels_folder']
+		folder = self.config['folders']['labels_folder']
 		labels = pd.DataFrame()
 		for (dirpath, _, filenames) in os.walk(folder):
 			if filenames:
@@ -111,7 +113,7 @@ class Data:
 		video_data = list()
 		video_data.append(self.video.get_video_data(data_part='Training'))
 		video_data.append(self.video.get_video_data(data_part='Development'))
-		if self.config['mode'] == 'test':
+		if self.options.mode == 'test':
 			video_data.append(self.video.get_video_data(data_part='Testing'))
 		return self.prep_features(video_data)
 

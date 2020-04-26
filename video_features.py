@@ -15,12 +15,15 @@ from keras_vggface.utils import preprocess_input
 
 class VideoFeatures:
 
-	def __init__(self, config):
+	def __init__(self, config, options, pars):
 		self.input_size = (224, 224, 3)
-		self.config = config
-		self.vgg_v, self.vgg_l, fdhh = self.config['video_features'].split('_')
+		self.video_config = config['video']
+		self.folders = config['folders']
+		self.options = options
+		self.pars = pars
+		self.vgg_v, self.vgg_l, fdhh = self.video_config['video_features'].split('_')
 		self.fdhh = bool(fdhh)
-		self.feature_folder = f'{self.config["video_folder"]}/{self.vgg_v}_{self.vgg_l}'
+		self.feature_folder = f'{self.folders["video_folder"]}/{self.vgg_v}_{self.vgg_l}'
 
 	def get_video_data(self, data_part):
 		"""
@@ -39,10 +42,10 @@ class VideoFeatures:
 		"""
 
 		data_path = f'{self.feature_folder}/{data_part}'
-		scaler_path = (self.config['models_folder'], f'{self.vgg_v}_{self.vgg_l}_scaler')
+		scaler_path = (self.folders['models_folder'], f'{self.vgg_v}_{self.vgg_l}_scaler')
 		fdhh_path = (f'{self.feature_folder}_FD', f'{data_part}.pic')
 
-		if self.fdhh and os.path.exists(f'{fdhh_path[0]}/{fdhh_path[1]}'):
+		if self.fdhh and os.path.exists(f'{fdhh_path[0]}/{fdhh_path[1]}') and self.options.save_fdhh:
 			return load_from_file(f'{fdhh_path[0]}/{fdhh_path[1]}')
 
 		if not os.path.exists(data_path):
@@ -51,7 +54,7 @@ class VideoFeatures:
 		if data_part == 'Training':
 			scaler = self.video_min_max(data_path)
 			save_to_file(scaler_path[0], scaler_path[1], scaler)
-		elif data_part == 'Development' and self.config['mode'] == 'test':
+		elif data_part == 'Development' and self.options.mode == 'test':
 			scaler = load_from_file(f'{scaler_path[0]}/{scaler_path[1]}')
 			scaler = self.video_min_max(data_path, scaler)
 			save_to_file(scaler_path[0], scaler_path[1], scaler)
@@ -65,7 +68,8 @@ class VideoFeatures:
 				video_data = scaler.transform(load_from_file(f'{data_path}/{file}'))
 				fdhh_data[file[:-4]] = self.FDHH(video_data).flatten()
 			fdhh_data = fdhh_data.transpose()
-			save_to_file(fdhh_path[0], fdhh_path[1], fdhh_data)
+			if self.options.save_fdhh:
+				save_to_file(fdhh_path[0], fdhh_path[1], fdhh_data)
 			return fdhh_data
 
 		else:
@@ -81,7 +85,7 @@ class VideoFeatures:
 		face_detector = MTCNN()
 		encoder = self.get_vggface()
 		
-		folder = self.config['raw_video_folder']
+		folder = self.folders['raw_video_folder']
 
 		for (dirpath, _, filenames) in os.walk(folder):
 			if platform == 'linux' or platform == 'linux2' or platform == 'darwin':
@@ -93,7 +97,7 @@ class VideoFeatures:
 			if filenames:
 				for file in filenames:
 					encode_path = (f'{self.feature_folder}/{split_path[-2]}', f'{file[:14]}.pic')
-					coord_path = (f'{self.config["facial_data"]}', f'{file[:14]}.pic')
+					coord_path = (f'{self.folders["facial_data"]}', f'{file[:14]}.pic')
 					if file.endswith('.mp4') and not os.path.exists(f'{encode_path[0]}/{encode_path[1]}'):
 						print(f'Extracting features from {file}')
 						faces, coords = self.video_faces(f'{dirpath}/{file}', f'{coord_path[0]}/{coord_path[1]}', face_detector)
@@ -257,11 +261,12 @@ class VideoFeatures:
 			encoding : fdhh (M * C)
 				Feature vector of consequtive change in pixel values for M number of changes for each pixel C.
 		"""
-
+		fdhh_pars = self.pars['FDHH']
+		
 		frames, components = video.shape  # (N, C) in the paper
-		pattern_len = 5  # (M) in the paper
+		pattern_len = fdhh_pars['pattern_len']  # (M) in the paper
 		# TODO: Investigate this value... Suggested to use if features are [0, 1]
-		thresh = 1 / 255  # (T) in the paper
+		thresh = fdhh_pars['thresh']  # (T) in the paper
 
 		dynamics = np.abs(video[1:] - video[:-1])
 		binary_d = np.where(dynamics > thresh, 1, 0).T  # (D(c,n)) in the paper

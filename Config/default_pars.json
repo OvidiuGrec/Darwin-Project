@@ -14,12 +14,11 @@
   },
 
   "FDHH": {
-
+    "pattern_len": 5,
+    "thresh": 0.004
   },
 
   "PCA": {
-    "audio_feature": 0.995,
-    "video_features": 0.995,
-    "comb_features": 0.94
+    "combined_components": 0.94
   }
 }
