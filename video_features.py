@@ -44,7 +44,7 @@ class VideoFeatures:
 		scaler_path = (self.folders['models_folder'], f'{self.vgg_v}_{self.vgg_l}_scaler')
 		fdhh_path = (f'{self.feature_folder}_FD', f'{data_part}.pic')
 
-		if self.fdhh and os.path.exists(f'{fdhh_path[0]}/{fdhh_path[1]}') and self.options.save_fdhh:
+		if self.fdhh and os.path.exists(f'{fdhh_path[0]}/{fdhh_path[1]}') and not self.options.save_fdhh:
 			return load_from_file(f'{fdhh_path[0]}/{fdhh_path[1]}')
 
 		if not os.path.exists(data_path):
@@ -236,6 +236,7 @@ class VideoFeatures:
 
 		# this returns layer-specific features:
 		wanted_layer = layers_select[self.vgg_l]
+		# TODO: change include top depending on the architecture
 		vgg_model = VGGFace(model=model_select[self.vgg_v], input_shape=(224, 224, 3), include_top=False)
 
 		out = vgg_model.get_layer(wanted_layer).output
@@ -263,7 +264,6 @@ class VideoFeatures:
 		
 		frames, components = video.shape  # (N, C) in the paper
 		pattern_len = fdhh_pars['pattern_len']  # (M) in the paper
-		# TODO: Investigate this value... Suggested to use if features are [0, 1]
 		thresh = fdhh_pars['thresh']  # (T) in the paper
 
 		dynamics = np.abs(video[1:] - video[:-1])
