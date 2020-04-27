@@ -12,12 +12,12 @@ from keras.callbacks import EarlyStopping
 
 class DepressionModel:
 	
-	def __init__(self, config, input_shape, pars=None):
+	def __init__(self, feature_type, config, input_shape, pars=None):
 		self.n_features = input_shape[1]
 		self.config = config
 		self.pars = pars
-		self.model_names = config['model_name'].split('+')
-		self.model_weights = [float(v) for v in config['model_weights'].split('+')]
+		self.model_names = config[f'{feature_type}_model_name'].split('+')
+		self.model_weights = [float(v) for v in config[f'{feature_type}_model_weights'].split('+')]
 		self.models = self.get_models()
 	
 	def get_models(self):
@@ -55,13 +55,17 @@ class DepressionModel:
 		return final_pred
 	
 	def validate_model(self, X, y):
-		
 		pred = self.predict(X)
-
-		mae = mean_absolute_error(y, pred)
-		mse = mean_squared_error(y, pred)
-		rmse = np.sqrt(mse)
+		mae, rmse = self.score(y, pred)
 		
+		return mae, rmse, pred
+
+	@staticmethod
+	def score(y, predictions):
+		mae = mean_absolute_error(y, predictions)
+		mse = mean_squared_error(y, predictions)
+		rmse = np.sqrt(mse)
+
 		return mae, rmse
 		
 	def PLS(self):  # Partial Least Squares

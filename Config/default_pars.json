@@ -19,6 +19,8 @@
   },
 
   "PCA": {
-    "combined_components": 0.94
+    "video_components": 0.995,
+    "audio_components": 0.995,
+    "combined_components": 0.995
   }
 }

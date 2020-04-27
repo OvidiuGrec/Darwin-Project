@@ -45,7 +45,7 @@ class VideoFeatures:
 		scaler_path = (self.folders['models_folder'], f'{self.vgg_v}_{self.vgg_l}_scaler')
 		fdhh_path = (f'{self.feature_folder}_FD', f'{data_part}.pic')
 
-		if self.fdhh and os.path.exists(f'{fdhh_path[0]}/{fdhh_path[1]}') and self.options.save_fdhh:
+		if self.fdhh and os.path.exists(f'{fdhh_path[0]}/{fdhh_path[1]}') and not self.options.save_fdhh:
 			return load_from_file(f'{fdhh_path[0]}/{fdhh_path[1]}')
 
 		if not os.path.exists(data_path):

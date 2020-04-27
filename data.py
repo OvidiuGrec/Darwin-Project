@@ -15,15 +15,15 @@ class Data:
 		self.options = options
 		self.config = config
 		self.pars = pars
-		self.video_features = config['video']['video_features']
-		self.audio_features = config['audio']['audio_features']
-		if self.video_features:
+		self.feature_type = config['general']['feature_type']
+		self.fusion = self.config['general']['fusion']
+		if self.feature_type in ['video', 'combined']:
 			self.video = VideoFeatures(config, options, pars)
-		if self.audio_features:
+		if self.feature_type in ['audio', 'combined']:
 			self.audio = AudioFeatures(config)
 
 	# TODO: add test features and labels when available
-	def load_data(self):
+	def load_data(self, feature_type):
 		"""
 			Loads all data depending on parameters provided in the config file.
 			Combine audio and video features if required
@@ -34,24 +34,33 @@ class Data:
 				Final feature and label vectors ready for training and testing.
 		"""
 
-		if self.audio_features and self.video_features:
-			video_data = self.load_video_features()
-			audio_data = self.load_audio_features()
-			X = self.combine_features(video_data, audio_data)
-		elif self.video_features:
+		# Split the labels according to indexes
+		X = None
+		y = self.load_labels()
+
+		X_train, y_train, X_test, y_test = [np.array([]) for _ in range(4)]
+		if feature_type == 'combined':
+			features = {'video': self.load_video_features(), 'audio': self.load_audio_features()}
+			if self.fusion == 'early':
+				X = self.combine_features(features['video'], features['audio'])
+			elif self.fusion == 'mid':
+				for feature_type in ['video', 'audio']:
+					_X_train, y_train, _X_test, y_test = self.split_data(features[feature_type], y)
+					_X_train, _X_test = self.preprocess(feature_type, _X_train, _X_test)
+					X_train = np.hstack((X_train, _X_train)) if X_train.size != 0 else _X_train
+					X_test = np.hstack((X_test, _X_test)) if X_test.size != 0 else _X_test
+		elif feature_type == 'video':
 			X = self.load_video_features()
-		elif self.audio_features:
+		elif feature_type == 'audio':
 			X = self.load_audio_features()
 
-		# Split the labels according to indexes
-		y = self.load_labels()
-		
-		X_train, y_train, X_test, y_test = self.split_data(X, y)
-		X_train, X_test = self.preprocess(X_train, X_test)
-	
+		if X is not None:
+			X_train, y_train, X_test, y_test = self.split_data(X, y)
+			X_train, X_test = self.preprocess(feature_type, X_train, X_test)
+
 		return X_train, y_train, X_test, y_test
 
-	def preprocess(self, X_train, X_test):
+	def preprocess(self, feature_type, X_train, X_test):
 		"""
 			Scale and reduce dimensionality of input features
 
@@ -79,7 +88,8 @@ class Data:
 		X_test = scaler.transform(X_test)
 		
 		pca = PCA().fit(X_train)
-		n_components = np.where(np.cumsum(pca.explained_variance_ratio_) > self.pars['PCA']['combined_components'])[0][0]
+		n_components = self.pars['PCA'][f'{feature_type}_components']
+		n_components = np.where(np.cumsum(pca.explained_variance_ratio_) > n_components)[0][0]
 		pca = PCA(n_components=n_components).fit(X_train)
 		X_train = pca.transform(X_train)
 		X_test = pca.transform(X_test)
@@ -118,13 +128,12 @@ class Data:
 		return self.prep_features(video_data)
 
 	def load_audio_features(self):
-		audio_train = self.audio.get_features('training')
-		audio_dev = self.audio.get_features('development')
-		audio_train.index = self.filename_to_index(audio_train.index)
-		audio_dev.index = self.filename_to_index(audio_dev.index)
-		audio_train = self.combine_tasks(audio_train)
-		audio_dev = self.combine_tasks(audio_dev)
-		return audio_train, audio_dev
+		audio_data = list()
+		audio_data.append(self.audio.get_features('training'))
+		audio_data.append(self.audio.get_features('development'))
+		if self.options.mode == 'test':
+			audio_data.append(self.audio.get_features('testing'))
+		return self.prep_features(audio_data)
 	
 	@staticmethod
 	def split_data(X, y):
