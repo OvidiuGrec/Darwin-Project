@@ -24,19 +24,22 @@ class Pipeline:
         self.config = self.load_config()
         self.pars = self.load_pars()
         self.data = Data(self.config, self.options, self.pars)
-        self.fusion = self.config['general']['fusion']
+        self.fusion = self.config['combined']['fusion']
         self.feature_type = self.config['general']['feature_type']
-
+        
+        # Add configs that should not be logged
         if self.fusion == 'late':
-            self.no_log.append('combined')
-        if self.feature_type != 'combined':
-            self.no_log.append('fusion')
-        if self.feature_type not in ['video', 'combined']:
-            self.no_log.append('video')
-        if self.feature_type not in ['audio', 'combined']:
-            self.no_log.append('audio')
+            self.no_log += ['combined']
+            
+        if self.feature_type == 'video':
+            self.no_log += ['audio', 'audio_features', 'combined']
+        elif self.feature_type == 'audio':
+            self.no_log += ['video', 'video_features', 'combined']
+        elif self.feature_type == 'combined':
+            self.no_log += ['audio', 'video']
 
     def run_experiment(self, **kwargs):
+        
         if self.options.opt:
             self.optimize()
         
@@ -51,32 +54,34 @@ class Pipeline:
             mlflow.set_experiment(self.config['general']['experiment'])
             mlflow.start_run()
             self.log_pars()
-            mlflow.set_tags({'seed': seed})
+            mlflow.set_tags({'seed': seed, 'mode': self.options.mode})
 
-        mae = rmse = 0
         if self.feature_type == 'combined' and self.fusion == 'late':
-            self.run_bimodal()
+            mae = self.train_bimodal()
         else:
-            self.run_model(self.feature_type)
+            _, _, _, _, mae = self.train_model(self.feature_type)
+            
         if self.options.mlflow:
             mlflow.end_run()
 
         return -mae
 
-    def run_bimodal(self):
-        v_pred_train, v_pred_test, y_train, y_test = self.run_model('video')
-        a_pred_train, a_pred_test, y_train, y_test = self.run_model('audio')
+    def train_bimodal(self):
+        v_pred_train, v_pred_test, y_train, y_test, _ = self.train_model('video')
+        a_pred_train, a_pred_test, y_train, y_test, _ = self.train_model('audio')
 
-        pred_weights = [float(v) for v in self.config['general']['prediction_weights'].split('+')]
+        pred_weights = [float(v) for v in self.config['combined']['prediction_weights'].split('+')]
         pred_train = pred_weights[0] * v_pred_train + pred_weights[1] * a_pred_train
         pred_test = pred_weights[0] * v_pred_test + pred_weights[1] * a_pred_test
 
         train_mae, train_rmse = DepressionModel.score(y_train, pred_train)
         test_mae, test_rmse = DepressionModel.score(y_test, pred_test)
 
-        self.log_score('combined', train_mae, train_rmse, test_mae, test_rmse)
+        self.log_metrics('combined', train_mae, train_rmse, test_mae, test_rmse)
+        
+        return test_mae
 
-    def run_model(self, feature_type):
+    def train_model(self, feature_type):
         X_train, y_train, X_test, y_test = self.data.load_data(feature_type)
         input_shape = X_train.shape
 
@@ -88,16 +93,9 @@ class Pipeline:
         train_mae, train_rmse, pred_train = model.validate_model(X_train, y_train)
         test_mae, test_rmse, pred_test = model.validate_model(X_test, y_test)
 
-        self.log_score(feature_type, train_mae, train_rmse, test_mae, test_rmse)
+        self.log_metrics(feature_type, train_mae, train_rmse, test_mae, test_rmse)
 
-        return pred_train, pred_test, y_train, y_test
-
-    def log_score(self, feature_type, train_mae, train_rmse, test_mae, test_rmse):
-        if self.options.mlflow:
-            log_type = f'{feature_type}_' if feature_type else ''
-            mlflow.log_metrics({f'{log_type}train_mae': train_mae, f'{log_type}train_rmse': train_rmse,
-                                f'{log_type}test_mae': test_mae, f'{log_type}test_rmse': test_rmse})
-
+        return pred_train, pred_test, y_train, y_test, test_mae
 
     def optimize(self):
         pbounds = {}
@@ -109,7 +107,7 @@ class Pipeline:
     
         opt_part = partial(self.run_experiment, use_mlflow=False)
         optimizer = BayesianOptimization(f=opt_part, pbounds=pbounds, verbose=2, random_state=1)
-        optimizer.maximize(init_points=10, n_iter=100)
+        optimizer.maximize(init_points=10, n_iter=30)
         for i, res in enumerate(optimizer.res):
             print("Iteration {}: \n\t{}".format(i, res))
         print(optimizer.max)
@@ -130,6 +128,12 @@ class Pipeline:
                 for k1, v1 in v0.items():
                     if k1 not in self.no_log:
                         mlflow.log_param(k1, v1)
+                        
+    def log_metrics(self, feature_type, train_mae, train_rmse, test_mae, test_rmse):
+        if self.options.mlflow:
+            log_type = f'{feature_type}_' if feature_type else ''
+            mlflow.log_metrics({f'{log_type}train_mae': train_mae, f'{log_type}train_rmse': train_rmse,
+                                f'{log_type}test_mae': test_mae, f'{log_type}test_rmse': test_rmse})
     
     def adjust_pars(self, new_pars):
     
@@ -204,22 +208,28 @@ class Pipeline:
         general['experiment'] = parser.get("general", "experiment")
         general['seed'] = parser.getint("general", "seed")
         general['feature_type'] = parser.get('general', 'feature_type')
-        general['fusion'] = parser.get("general", "fusion")
-        general['prediction_weights'] = parser.get("general", "prediction_weights")
-        
-        audio = config['audio']
-        audio['audio_features'] = parser.get("audio", "audio_features")
-        audio['audio_model_name'] = parser.get("audio", "model_name")
-        audio['audio_model_weights'] = parser.get("audio", "model_weights")
-
-        video = config['video']
-        video['video_features'] = parser.get("video", "video_features")
-        video['video_model_name'] = parser.get("video", "model_name")
-        video['video_model_weights'] = parser.get("video", "model_weights")
+        general['audio_features'] = parser.get("general", "audio_features")
+        general['video_features'] = parser.get("general", "video_features")
 
         combined = config['combined']
-        combined['combined_model_name'] = parser.get("combined", "model_name")
-        combined['combined_model_weights'] = parser.get("combined", "model_weights")
+        combined['combined_model'] = parser.get("combined", "combined_model")
+        combined['combined_model_weights'] = parser.get("combined", "combined_model_weights")
+        combined['fusion'] = parser.get("combined", "fusion")
+        combined['prediction_weights'] = parser.get("combined", "prediction_weights")
+        combined['combined_scaler'] = parser.get("combined", "combined_scaler")
+        combined['combined_scale_over'] = parser.get("combined", 'combined_scale_over')
+        
+        audio = config['audio']
+        audio['audio_model'] = parser.get("audio", "audio_model")
+        audio['audio_model_weights'] = parser.get("audio", "audio_model_weights")
+        audio['audio_scaler'] = parser.get("audio", "audio_scaler")
+        audio['audio_scale_over'] = parser.get("audio", 'audio_scale_over')
+
+        video = config['video']
+        video['video_model'] = parser.get("video", "video_model")
+        video['video_model_weights'] = parser.get("video", "video_model_weights")
+        video['video_scaler'] = parser.get("video", "video_scaler")
+        video['video_scale_over'] = parser.get("video", 'video_scale_over')
         
         folders = config['folders']
         folders['raw_video_folder'] = parser.get("folders", "raw_video_folder")
@@ -254,5 +264,4 @@ class Pipeline:
 if __name__ == '__main__':
     pipe = Pipeline()
     self = pipe
-    # pipe.optimize()
     pipe.run_experiment()

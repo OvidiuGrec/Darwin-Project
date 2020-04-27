@@ -1,11 +1,4 @@
 {
-  "PLS": {
-    "model": {
-      "n_components": 5
-    },
-    "train": {}
-  },
-
   "LR": {
     "model": {
       "normalize": true
@@ -19,6 +12,6 @@
   },
 
   "PCA": {
-    "combined_components": 0.995
+    "video_components": 0.94
   }
 }

@@ -16,7 +16,7 @@ class DepressionModel:
 		self.n_features = input_shape[1]
 		self.config = config
 		self.pars = pars
-		self.model_names = config[f'{feature_type}_model_name'].split('+')
+		self.model_names = config[f'{feature_type}_model'].split('+')
 		self.model_weights = [float(v) for v in config[f'{feature_type}_model_weights'].split('+')]
 		self.models = self.get_models()
 	
@@ -61,6 +61,7 @@ class DepressionModel:
 		return mae, rmse, pred
 
 	@staticmethod
+	# TODO: migrate to a separate script
 	def score(y, predictions):
 		mae = mean_absolute_error(y, predictions)
 		mse = mean_squared_error(y, predictions)

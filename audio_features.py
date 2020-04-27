@@ -18,13 +18,12 @@ from helper import save_to_file, load_from_file
 class AudioFeatures:
     
     def __init__(self, config):
-        audio_config = config['audio']
         folders = config['folders']
         self.raw_audio_dir = Path(folders['raw_audio_folder']) if 'raw_audio_folder' in folders else None
         self.seg_audio_dir = Path(folders['seg_audio_folder']) if 'seg_audio_folder' in folders else None
         self.features_dir = Path(folders['audio_folder'])
 
-        self.feature_type = audio_config['audio_features'].lower()
+        self.feature_type = config['general']['audio_features'].lower()
         if not self.feature_type in ['avec', 'xcorr', 'egemaps']:
             raise ValueError("feature_type should be either 'AVEC', 'XCORR' or 'EGEMAPS'")
         self.__setup_opensmile()

@@ -17,11 +17,10 @@ class VideoFeatures:
 
 	def __init__(self, config, options, pars):
 		self.input_size = (224, 224, 3)
-		self.video_config = config['video']
 		self.folders = config['folders']
 		self.options = options
 		self.pars = pars
-		self.vgg_v, self.vgg_l, fdhh = self.video_config['video_features'].split('_')
+		self.vgg_v, self.vgg_l, fdhh = config['general']['video_features'].split('_')
 		self.fdhh = bool(fdhh)
 		self.feature_folder = f'{self.folders["video_folder"]}/{self.vgg_v}_{self.vgg_l}'
 
@@ -45,7 +44,7 @@ class VideoFeatures:
 		scaler_path = (self.folders['models_folder'], f'{self.vgg_v}_{self.vgg_l}_scaler')
 		fdhh_path = (f'{self.feature_folder}_FD', f'{data_part}.pic')
 
-		if self.fdhh and os.path.exists(f'{fdhh_path[0]}/{fdhh_path[1]}') and not self.options.save_fdhh:
+		if self.fdhh and os.path.exists(f'{fdhh_path[0]}/{fdhh_path[1]}') and self.options.save_fdhh:
 			return load_from_file(f'{fdhh_path[0]}/{fdhh_path[1]}')
 
 		if not os.path.exists(data_path):
@@ -71,7 +70,6 @@ class VideoFeatures:
 			if self.options.save_fdhh:
 				save_to_file(fdhh_path[0], fdhh_path[1], fdhh_data)
 			return fdhh_data
-
 		else:
 			# TODO: Aggregate all raw video data (Maybe use Tensorflow generator?)
 			return None
