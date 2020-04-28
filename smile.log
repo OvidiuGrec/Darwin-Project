@@ -1,0 +1,20 @@
+[ 23.04.2020 - 13:49:56 ]
+    (MSG) [2] in SMILExtract : openSMILE starting!
+[ 23.04.2020 - 13:49:56 ]
+    (MSG) [2] in SMILExtract : config file is: C:\Darwin-Project\data\audio\openSMILE\config\mfcc\mfcc.conf
+[ 23.04.2020 - 13:49:56 ]
+    (MSG) [2] in cComponentManager : successfully registered 95 component types.
+==> LEVEL 'wave'  +++  Buffersize(frames) = 44101  +++  nReaders = 1
+==> LEVEL 'frame25'  +++  Buffersize(frames) = 3  +++  nReaders = 1
+==> LEVEL 'winH25'  +++  Buffersize(frames) = 3  +++  nReaders = 1
+==> LEVEL 'fftcH25'  +++  Buffersize(frames) = 3  +++  nReaders = 1
+==> LEVEL 'fftmagH25'  +++  Buffersize(frames) = 3  +++  nReaders = 1
+==> LEVEL 'melspecMfcc'  +++  Buffersize(frames) = 3  +++  nReaders = 1
+==> LEVEL 'mfcc'  +++  Buffersize(frames) = 3  +++  nReaders = 1
+[ 23.04.2020 - 13:49:56 ]
+    (MSG) [2] in cComponentManager : successfully finished createInstances
+                                 (8 component instances were finalised, 1 data memories were finalised)
+[ 23.04.2020 - 13:49:56 ]
+    (MSG) [2] in cComponentManager : starting single thread processing loop
+[ 23.04.2020 - 13:49:56 ]
+    (MSG) [2] in cComponentManager : Processing finished! System ran for 243 ticks.
