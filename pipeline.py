@@ -17,7 +17,7 @@ class Pipeline:
 
     def __init__(self):
         
-        self.int_pars = ['l1', 'l2', 'batch_size', 'epochs']
+        self.int_pars = ['l1', 'l2', 'batch_size', 'epochs', 'pattern_len', 'seq_length']
         self.no_log = ['experiment', 'seed', 'folders', 'config_location', 'feature_type']
         
         self.options = self.parse_options()
@@ -49,6 +49,7 @@ class Pipeline:
 
         if kwargs:
             self.adjust_pars(kwargs)
+            self.data = Data(self.config, self.options, self.pars)
 
         if self.options.mlflow:
             mlflow.set_experiment(self.config['general']['experiment'])
@@ -98,12 +99,17 @@ class Pipeline:
         return pred_train, pred_test, y_train, y_test, test_mae
 
     def optimize(self):
+        self.options.opt = False
         pbounds = {}
         for k0, v0 in self.pars.items():
             for k1, v1 in v0.items():
-                for k2, v2 in v1.items():
-                    if isinstance(v2, (list, tuple)):
-                        pbounds[k2] = v2
+                try:
+                    for k2, v2 in v1.items():
+                        if isinstance(v2, (list, tuple)):
+                            pbounds[k2] = v2
+                except AttributeError:
+                    if isinstance(v1, (list, tuple)):
+                        pbounds[k1] = v1
     
         opt_part = partial(self.run_experiment, use_mlflow=False)
         optimizer = BayesianOptimization(f=opt_part, pbounds=pbounds, verbose=2, random_state=1)
@@ -143,9 +149,13 @@ class Pipeline:
                     try:
                         for k2, v2 in v1.items():
                             if k2 == key:
+                                if k2 in self.int_pars:
+                                    value = int(value)
                                 v1[k2] = value
                     except AttributeError:
                         if k1 == key:
+                            if k1 in self.int_pars:
+                                value = int(value)
                             v0[k1] = value
     
     @staticmethod
@@ -246,18 +256,6 @@ class Pipeline:
     def load_pars(self):
         with open(self.options.pars, 'r') as f:
             pars = json.load(f)
-        
-        # Convert all lists to tuples for optimization
-        for k0, v0 in pars.items():
-            for k1, v1 in pars[k0].items():
-                try:
-                    for k2, v2 in v0[k1].items():
-                        if isinstance(v2, list):
-                            v1[k2] = tuple(v2)
-                except AttributeError:
-                    if isinstance(v1, list):
-                        v0[k1] = tuple(v1)
-                        
         return pars
 
 

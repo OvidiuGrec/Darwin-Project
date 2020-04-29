@@ -24,6 +24,8 @@ class Data:
 			self.video = VideoFeatures(config, options, pars)
 		if self.feature_type in ['audio', 'combined']:
 			self.audio = AudioFeatures(config)
+		if not self.video.fdhh:
+			self.seq_length = pars['VanilaLSTM']['data']['seq_length']
 
 	def load_data(self, feature_type):
 		"""
@@ -60,8 +62,15 @@ class Data:
 			X_train, X_test = self.preprocess(feature_type, X_train, X_test)
 		else:
 			raise Exception("Invalid feature type has been provided (Should be from (audio, video, combined)")
-
-		return X_train, y_train, X_test, y_test
+		
+		if not self.video.fdhh:
+			y_train = y_train.iloc[::self.seq_length, :].copy()
+			y_test = y_test.iloc[::self.seq_length, :].copy()
+		
+		idx_tr, idx_te = np.arange(X_train.shape[0]), np.arange(X_test.shape[0])
+		np.random.shuffle(idx_tr), np.random.shuffle(idx_te)
+		
+		return X_train[idx_tr], y_train.iloc[idx_tr], X_test[idx_te], y_test.iloc[idx_te]
 
 	def preprocess(self, feature_type, X_train, X_test):
 		"""
@@ -83,15 +92,31 @@ class Data:
 			scaler_idx = 1
 		else:
 			scaler_idx = 0
-		pca_pars = self.pars['PCA'][f'{feature_type}_components']
 		
 		if scaler[0] == 'boxcox':
 			X_train, X_test = self.boxcox_transform(X_train, X_test)
+		
+		if scaler[scaler_idx] == 'minmax' or scaler[scaler_idx] == 'standard':
+			X_train, X_test = self.scale(X_train, X_test, scale=scaler[scaler_idx], scale_over=scale_over[scaler_idx])
+		elif self.options.verbose:
+			print('No scaler has been used before PCA. If this behaviour is unintentional check configurations.')
 			
-		X_train, X_test = self.scale(X_train, X_test, scale=scaler[scaler_idx], scale_over=scale_over[scaler_idx])
-		X_train, X_test = self.pca_transform(X_train, X_test, pca_components=pca_pars)
+		try:
+			pca_pars = self.pars['PCA'][f'{feature_type}_components']
+			X_train, X_test = self.pca_transform(X_train, X_test, pca_components=pca_pars)
+		except KeyError:
+			if self.options.verbose:
+				print('No pca performed during preprocessing. If this behaviour is unintentional check parameters.')
+				
 		X_train, X_test = self.scale(X_train, X_test, scale='minmax')
 		
+		if feature_type == 'video' and not self.video.fdhh:
+			# Reshape for LSTM:
+			X_train = X_train.reshape(-1, self.seq_length, X_train.shape[-1])
+			X_test = X_test.reshape(-1, self.seq_length, X_test.shape[-1])
+			if self.options.verbose:
+				print(f"Training input shape for the LSTM is {X_train.shape}")
+			
 		return X_train, X_test
 
 	def load_labels(self):
@@ -114,12 +139,14 @@ class Data:
 		return labels.transpose()
 
 	def load_video_features(self):
-		video_data = list()
-		video_data.append(self.video.get_video_data(data_part='Training'))
-		video_data.append(self.video.get_video_data(data_part='Development'))
+		train_video = self.video.get_video_data(data_part='Training')
+		dev_video = self.video.get_video_data(data_part='Development')
+		video_data = [train_video,  dev_video]
 		if self.options.mode == 'test':
 			video_data.append(self.video.get_video_data(data_part='Testing'))
-		return self.prep_features(video_data)
+		if self.video.fdhh:
+			video_data = self.prep_features(video_data)
+		return video_data
 
 	def load_audio_features(self):
 		audio_data = list()
@@ -137,15 +164,14 @@ class Data:
 		else:
 			X_train, X_test = X[0], X[1]
 		
-		y_train = y.loc[X_train.index]
-		y_test = y.loc[X_test.index]
+		y_train = y.loc[X_train.index.get_level_values(0)]
+		y_test = y.loc[X_test.index.get_level_values(0)]
 		
 		return X_train.values, y_train, X_test.values, y_test
 		
 	def prep_features(self, data):
 		for i, part in enumerate(data):
 			part.index = self.filename_to_index(part.index)
-			# TODO: test without combining tasks
 			data[i] = self.combine_tasks(part)
 		return data
 
@@ -212,7 +238,7 @@ class Data:
 			ax1.legend()
 		
 		# Used to add before boxcox transformation to ensure all values are positive
-		sv = 0.0001
+		sv = 1
 		X_train, maxlog = boxcox(X_train.flatten() + sv)
 		X_train = X_train.reshape(train_shape)
 		X_test = boxcox(X_test.flatten() + sv, maxlog).reshape(test_shape)
@@ -221,6 +247,8 @@ class Data:
 			ax2.hist(X_train.flatten(), label='train')
 			ax2.hist(X_test.flatten(), label='test')
 			ax2.legend()
+		
+		plt.show()
 			
 		return X_train, X_test
 	

@@ -1,0 +1,23 @@
+{
+  "VanilaLSTM": {
+    "model": {
+      "l1": 15,
+      "l2": 300,
+      "lr": 0.001
+    },
+    "train": {
+      "epochs": 30,
+      "batch_size": 128,
+      "verbose": 0,
+      "validation_split": 0
+    },
+    "data": {
+      "seq_length": 20
+    }
+  },
+
+  "PCA": {
+    "per_frame_components": 150,
+    "per_frame_use_saved": true
+  }
+}

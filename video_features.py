@@ -4,7 +4,8 @@ import numpy as np
 import pandas as pd
 from sys import platform
 
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.decomposition import IncrementalPCA
 from helper import save_to_file, load_from_file
 
 from mtcnn import MTCNN
@@ -23,6 +24,9 @@ class VideoFeatures:
 		self.vgg_v, self.vgg_l, fdhh = config['general']['video_features'].split('_')
 		self.fdhh = bool(fdhh)
 		self.feature_folder = f'{self.folders["video_folder"]}/{self.vgg_v}_{self.vgg_l}'
+		if not self.fdhh:
+			self.seq_length = pars['VanilaLSTM']['data']['seq_length']  # TODO: define to be independent of model used
+		
 
 	def get_video_data(self, data_part):
 		"""
@@ -41,7 +45,6 @@ class VideoFeatures:
 		"""
 
 		data_path = f'{self.feature_folder}/{data_part}'
-		scaler_path = (self.folders['models_folder'], f'{self.vgg_v}_{self.vgg_l}_scaler')
 		fdhh_path = (f'{self.feature_folder}_FD', f'{data_part}.pic')
 
 		if self.fdhh and os.path.exists(f'{fdhh_path[0]}/{fdhh_path[1]}') and not self.options.save_fdhh:
@@ -49,30 +52,36 @@ class VideoFeatures:
 
 		if not os.path.exists(data_path):
 			self.encode_videos()
-
-		if data_part == 'Training':
-			scaler = self.video_min_max(data_path)
-			save_to_file(scaler_path[0], scaler_path[1], scaler)
-		elif data_part == 'Development' and self.options.mode == 'test':
-			scaler = load_from_file(f'{scaler_path[0]}/{scaler_path[1]}')
-			scaler = self.video_min_max(data_path, scaler)
-			save_to_file(scaler_path[0], scaler_path[1], scaler)
-		else:
-			scaler = load_from_file(f'{scaler_path[0]}/{scaler_path[1]}')
-
+			
+		scaler = self.train_scaler(data_part, scaler_type='minmax')
 		files = os.listdir(data_path)
+		
 		if self.fdhh:
-			fdhh_data = pd.DataFrame()
+			video_df = pd.DataFrame()
 			for file in files:
 				video_data = scaler.transform(load_from_file(f'{data_path}/{file}'))
-				fdhh_data[file[:-4]] = self.FDHH(video_data).flatten()
-			fdhh_data = fdhh_data.transpose()
+				if np.isnan(video_data).any():
+					print(np.count_nonzero(np.isnan(video_data)))
+				video_df[file[:-4]] = self.FDHH(video_data).flatten()
+			video_df = video_df.transpose()
 			if self.options.save_fdhh:
-				save_to_file(fdhh_path[0], fdhh_path[1], fdhh_data)
-			return fdhh_data
+				save_to_file(fdhh_path[0], fdhh_path[1], video_df)
 		else:
-			# TODO: Aggregate all raw video data (Maybe use Tensorflow generator?)
-			return None
+			pca = self.train_pca(data_part, scaler)
+			labels = []
+			for i, file in enumerate(files):
+				video_data = scaler.transform(load_from_file(f'{data_path}/{file}'))
+				video_reduced = pca.transform(video_data)
+				video_split = self.split_video(video_reduced)
+				labels += list(np.repeat(file[:5], video_split.shape[0]))
+				if not i:
+					all_split = video_split
+				else:
+					all_split = np.vstack([all_split, video_split])
+			data = all_split.reshape(-1, all_split.shape[-1])
+			index = pd.MultiIndex.from_product([labels, np.arange(all_split.shape[1])])
+			video_df = pd.DataFrame(data=data, index=index)
+		return video_df
 
 	def encode_videos(self):
 		"""
@@ -84,7 +93,7 @@ class VideoFeatures:
 		encoder = self.get_vggface()
 		
 		folder = self.folders['raw_video_folder']
-
+		
 		for (dirpath, _, filenames) in os.walk(folder):
 			if platform == 'linux' or platform == 'linux2' or platform == 'darwin':
 				# linux and OSX
@@ -97,11 +106,13 @@ class VideoFeatures:
 					encode_path = (f'{self.feature_folder}/{split_path[-2]}', f'{file[:14]}.pic')
 					coord_path = (f'{self.folders["facial_data"]}', f'{file[:14]}.pic')
 					if file.endswith('.mp4') and not os.path.exists(f'{encode_path[0]}/{encode_path[1]}'):
-						print(f'Extracting features from {file}')
+						if self.options.verbose:
+							print(f'Extracting features from {file}')
 						faces, coords = self.video_faces(f'{dirpath}/{file}', f'{coord_path[0]}/{coord_path[1]}', face_detector)
 						encoding = self.vggface_encoding(faces, encoder)
 						save_to_file(coord_path[0], coord_path[1], coords)
 						save_to_file(encode_path[0], encode_path[1], encoding.reshape(encoding.shape[0], -1))
+				
 
 	def video_faces(self, video_path, coord_path, face_detector):
 		"""
@@ -141,7 +152,8 @@ class VideoFeatures:
 
 		faces = np.empty(shape=(n_frames, self.input_size[0], self.input_size[1], self.input_size[2]))
 		faces[:] = np.nan
-
+		
+		n_nan = 0
 		i = -1
 		while cap.isOpened():
 			ret, frame = cap.read()
@@ -152,6 +164,7 @@ class VideoFeatures:
 					all_coords[i] = self.get_face_coords(frame, face_detector)
 				c = all_coords[i]
 				if (c == -1).all():
+					n_nan += 1
 					continue
 				else:
 					face = frame[c[0]:c[1], c[2]:c[3]]
@@ -159,7 +172,13 @@ class VideoFeatures:
 			else:
 				break
 		cap.release()
-
+		
+		if n_nan > 0:
+			faces = self.fill_nan(faces)
+			if self.options.verbose:
+				print(f'Total number of NaN frames before interpolation in {video_path} is {n_nan}')
+				print(f'Reduced to {np.count_nonzero(np.isnan(faces))/(224*224*3)}')
+			
 		return faces, all_coords
 	
 	@staticmethod
@@ -208,7 +227,7 @@ class VideoFeatures:
 				Feature-vector of a face representations
 		"""
 
-		inputs = preprocess_input(faces, version=2)  # TODO: 1 for VGG and 2 for others
+		inputs = preprocess_input(faces, version=1)  # TODO: 1 for VGG and 2 for others
 		yhat = encoder.predict(inputs)
 		return yhat
 
@@ -237,7 +256,7 @@ class VideoFeatures:
 		# this returns layer-specific features:
 		wanted_layer = layers_select[self.vgg_l]
 		# TODO: change include top depending on the architecture
-		vgg_model = VGGFace(model=model_select[self.vgg_v], input_shape=(224, 224, 3), include_top=False)
+		vgg_model = VGGFace(model=model_select[self.vgg_v], input_shape=(224, 224, 3), include_top=True)
 
 		out = vgg_model.get_layer(wanted_layer).output
 		vgg_model_custom_layer = Model(inputs=vgg_model.input, outputs=out)
@@ -284,16 +303,92 @@ class VideoFeatures:
 					count = 0
 
 		return fdhh
+	
+	def split_video(self, video_data):
+		dim = video_data.shape[0]
+		cut_b = dim % self.seq_length
+		video_data = video_data[cut_b:]
+		video_split = np.array_split(video_data, (dim-cut_b)/self.seq_length)
+		return np.array(video_split)
+		
+	def train_scaler(self, data_part, scaler_type='minmax'):
+		
+		data_path = f'{self.feature_folder}/{data_part}'
+		scaler_path = (self.folders['models_folder'], f'{self.vgg_v}_{self.vgg_l}_scaler')
+		
+		if data_part == 'Training':
+			scaler = self.video_scaler(data_path, scaler_type=scaler_type)
+			save_to_file(scaler_path[0], scaler_path[1], scaler)
+		elif data_part == 'Development' and self.options.mode == 'test':
+			scaler = load_from_file(f'{scaler_path[0]}/{scaler_path[1]}')
+			scaler = self.video_scaler(data_path, scaler=scaler, scaler_type=scaler_type)
+			save_to_file(scaler_path[0], scaler_path[1], scaler)
+		else:
+			scaler = load_from_file(f'{scaler_path[0]}/{scaler_path[1]}')
+			
+		return scaler
 
 	@staticmethod
-	def video_min_max(folder, scaler=None):
+	def video_scaler(folder, scaler_type='minmax', scaler=None):
 
 		files = os.listdir(folder)
 		if not scaler:
-			scaler = MinMaxScaler()
+			if scaler_type == 'minmax':
+				scaler = MinMaxScaler()
+			elif scaler_type == 'standard':
+				scaler = StandardScaler()
 
 		for file in files:
 			video_data = load_from_file(f'{folder}/{file}')
 			scaler.partial_fit(video_data)
 
 		return scaler
+	
+	def train_pca(self, data_part, scaler):
+		
+		data_path = f'{self.feature_folder}/{data_part}'
+		pca_path = (self.folders['models_folder'], f'{self.vgg_v}_{self.vgg_l}_pca')
+		full_path = f'{pca_path[0]}/{pca_path[1]}'
+		n_components = self.pars['PCA']['per_frame_components']
+		use_saved = self.pars['PCA']['per_frame_use_saved']
+		
+		if use_saved and os.path.exists(full_path):
+			pca = load_from_file(full_path)
+		else:
+			if data_part == 'Training':
+				pca = self.video_pca(n_components, data_path, scaler)
+				if self.options.verbose:
+					print('Variance encompassed by pca for single frame after train set is '
+					      f'{np.cumsum(pca.explained_variance_ratio_)[-1]:.2f}')
+				save_to_file(pca_path[0], pca_path[1], pca)
+			elif data_part == 'Development' and self.options.mode == 'test':
+				pca = load_from_file(full_path)
+				pca = self.video_pca(n_components, data_path, scaler, pca=pca)
+				if self.options.verbose:
+					print('Variance encompassed by pca for single frame after dev set is '
+					      f'{np.cumsum(pca.explained_variance_ratio_)[-1]:.2f}')
+				save_to_file(pca_path[0], pca_path[1], pca)
+			else:
+				pca = load_from_file(full_path)
+		
+		return pca
+	
+	@staticmethod
+	def video_pca(n_components, folder, scaler, pca=None):
+		
+		files = os.listdir(folder)
+		if not pca:
+			pca = IncrementalPCA(n_components=n_components)
+		
+		for file in files:
+			video_data = scaler.transform(load_from_file(f'{folder}/{file}'))
+			pca.partial_fit(video_data)
+		
+		return pca
+	
+	@staticmethod
+	def fill_nan(faces):
+		init_shape = faces.shape
+		faces = pd.DataFrame(faces.reshape(init_shape[0], -1)).interpolate(axis=0, limit_direction='both')
+		faces = faces.values.reshape(init_shape)
+		return faces
