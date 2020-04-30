@@ -58,7 +58,7 @@ class Data:
 		if X is not None:
 			X_train, y_train, X_test, y_test = self.split_data(X, y)
 			X_train, X_test = self.preprocess(feature_type, X_train, X_test)
-		else:
+		if X_train.size == 0:
 			raise Exception("Invalid feature type has been provided (Should be from (audio, video, combined)")
 
 		return X_train, y_train, X_test, y_test
@@ -89,9 +89,9 @@ class Data:
 			X_train, X_test = self.boxcox_transform(X_train, X_test)
 			
 		X_train, X_test = self.scale(X_train, X_test, scale=scaler[scaler_idx], scale_over=scale_over[scaler_idx])
-		X_train, X_test = self.pca_transform(X_train, X_test, pca_components=pca_pars)
+		X_train, X_test = self.pca_transform(X_train, X_test, feature_type, pca_components=pca_pars)
 		X_train, X_test = self.scale(X_train, X_test, scale='minmax')
-		
+
 		return X_train, X_test
 
 	def load_labels(self):
@@ -212,7 +212,7 @@ class Data:
 			ax1.legend()
 		
 		# Used to add before boxcox transformation to ensure all values are positive
-		sv = 0.0001
+		sv = -np.min([X_train.min(), X_test.min()]) + 0.0001
 		X_train, maxlog = boxcox(X_train.flatten() + sv)
 		X_train = X_train.reshape(train_shape)
 		X_test = boxcox(X_test.flatten() + sv, maxlog).reshape(test_shape)
@@ -254,11 +254,11 @@ class Data:
 		return X_train, X_test
 	
 	@staticmethod
-	def pca_transform(X_train, X_test, pca_components=0.9):
+	def pca_transform(X_train, X_test, feature_type,  pca_components=0.9):
 		# TODO: add visualization
 		if pca_components < 1:
 			pca = PCA().fit(X_train)
 			pca_components = np.where(np.cumsum(pca.explained_variance_ratio_) > pca_components)[0][0]
-			mlflow.log_param('n_features', pca_components)
+			mlflow.log_param(f'{feature_type}_n_features', pca_components)
 		pca = PCA(n_components=pca_components).fit(X_train)
 		return pca.transform(X_train), pca.transform(X_test)

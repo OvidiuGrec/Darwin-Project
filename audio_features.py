@@ -1,13 +1,9 @@
-import os
 import sys
 import subprocess
 import csv
-import glob
 import re
 import pandas as pd
-import pickle
 import math
-import numpy as np
 import progressbar
 import xcorr_audio_features as xcorr
 
@@ -24,12 +20,13 @@ class AudioFeatures:
         self.features_dir = Path(folders['audio_folder'])
 
         self.feature_type = config['general']['audio_features'].lower()
-        if not self.feature_type in ['avec', 'xcorr', 'egemaps']:
-            raise ValueError("feature_type should be either 'AVEC', 'XCORR' or 'EGEMAPS'")
+        if self.feature_type not in ['avec', 'xcorr'] and not self.feature_type.startswith('egemaps'):
+            raise ValueError("feature_type should be either 'AVEC', 'XCORR', 'EGEMAPS' or 'EGEMAPS_X'")
         self.__setup_opensmile()
 
-    def segment_audio_files(self, seg_len=3):
+    def segment_audio_files(self, seg_len=3, overlap=1):
         sec_in_mili = 1000
+        step = (seg_len - overlap)
         segment_length = int(seg_len * sec_in_mili) # 3 seconds * 1000 = 3000 miliseconds
         pre = ['', '0', '00']
 
@@ -46,10 +43,10 @@ class AudioFeatures:
 
             # build segments (3 seconds with 1 second overlap)
             # for entire wav file
-            for i in range(math.ceil((int(duration) - 2)/2)):
+            for i in range(math.ceil((int(duration) - seg_len)/step)):
                 segment_name = f'{paths[k].name[0: -4]}_{pre[3 - len(str(i))]}{i}.wav'
                 target_file = target_dir / segment_name
-                start = 2 * i * sec_in_mili
+                start = step * i * sec_in_mili
                 end = start + segment_length
 
                 # export segmented wav file
@@ -67,18 +64,18 @@ class AudioFeatures:
             target_file = self.features_dir / self.feature_type / 'csv'
             target_file /= paths[i].relative_to(self.__audio_dir).with_suffix('.csv')
 
-            if not target_file.exists():
-                target_file.mkdir(parents=True)
+            if not target_file.parent.exists():
+                target_file.parent.mkdir(parents=True)
 
             # run shell opensmile command (not tested on Windows)
             if sys.platform.startswith('linux'):
-                subprocess.run(['SMILExtract', '-C', self.__config_file, '-I', paths[i], '-O', target_file])
+                subprocess.run(['SMILExtract', '-C', str(self.__config_file), '-I', str(paths[i]), '-O', str(target_file)])
             elif sys.platform.startswith('win32'):
-                subprocess.run(['SMILExtract.exe', '-C', self.__config_file, '-I', paths[i], '-O', target_file])
+                subprocess.run(['SMILExtract_Release.exe', '-C', str(self.__config_file), '-I', str(paths[i]), '-O', str(target_file)])
 
     def build_feature_sets(self):
         print('Building audio feature sets...')
-        if self.feature_type in ['avec', 'egemaps']:
+        if self.feature_type == 'avec' or self.feature_type.startswith('egemaps'):
             feature_sets = self.__build_feature_sets()
         else:
             feature_sets = xcorr.extract_features(self.raw_audio_dir)
@@ -94,7 +91,10 @@ class AudioFeatures:
             path = paths[i]
             regex = r"(Development|Testing|Training)/(Freeform|Northwind)"
             [(partition, task)] = re.findall(regex, '/'.join(path.parts))
-            file_name = path.parent.name if self.feature_type == 'avec' else path.name
+            if self.feature_type == 'avec' or self.feature_type.startswith('egemaps'):
+                file_name = path.parent.name
+            else:
+                file_name = path.name
 
             if not feature_names: feature_names = self.__csv_extract_headers(path)
             if not partition in data: data[partition] = {}
@@ -127,8 +127,10 @@ class AudioFeatures:
                 save_to_file(target_dir, file_name, data[p][t])
 
     def get_features(self, partition, extraction=False):
-        if extraction is True:
-            if self.feature_type in ['avec', 'egemaps']:
+        try:
+            return self.__load_features(partition)
+        except FileNotFoundError:
+            if self.feature_type == 'avec' or self.feature_type.startswith('egemaps'):
                 self.segment_audio_files()
                 self.extract_opensmile_features()
             self.build_feature_sets()
@@ -187,6 +189,9 @@ class AudioFeatures:
         elif self.feature_type == 'egemaps':
             self.__config_file = Path('tools/openSMILE/config/gemaps/eGeMAPSv01a.conf')
             self.__audio_dir = self.raw_audio_dir
+        elif self.feature_type.startswith('egemaps'):
+            self.__config_file = Path('tools/openSMILE/config/gemaps/eGeMAPSv01a.conf')
+            self.__audio_dir = self.seg_audio_dir
 
     # def get_labels(partition, labels_dir='data/labels/AVEC2014_Labels'):
     #     labels_glob = os.path.join(labels_dir, f"{partition.capitalize()}_DepressionLabels/*.csv")
