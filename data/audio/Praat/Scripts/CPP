@@ -12,9 +12,16 @@ repeat
 	end = 0.01 * i
 	selectObject: sound
 	soundSlice = Extract part: start, end, "rectangular", 1, 1
-	To Spectrum
-	To PowerCepstrum
+	spectrum = To Spectrum
+	powerCepstrum = To PowerCepstrum
 	prominence = Get peak prominence: 60, 333.3, "Parabolic", 0.002, 0.00, "Straight", "Robust slow"
 	appendFileLine: output_path$, prominence
+
+	selectObject: soundSlice
+	Remove
+	selectObject: spectrum
+	Remove
+	selectObject: powerCepstrum
+	Remove
 	i = i + 1
 until i > dur * 100

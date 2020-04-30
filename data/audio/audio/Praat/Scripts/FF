@@ -1,9 +1,0 @@
-form Title of the dialog window
-   sentence input_path
-   sentence output_path
-endform
-
-sound = Read from file: input_path$
-selectObject: sound
-To Formant (burg)... 0.01 5 5500 0.01 50
-Save as text file: output_path$
