@@ -112,7 +112,7 @@ class Pipeline:
     
         opt_part = partial(self.run_experiment, use_mlflow=False)
         optimizer = BayesianOptimization(f=opt_part, pbounds=pbounds, verbose=2, random_state=1)
-        optimizer.maximize(init_points=5, n_iter=10)
+        optimizer.maximize(init_points=20, n_iter=200)
         for i, res in enumerate(optimizer.res):
             print("Iteration {}: \n\t{}".format(i, res))
         print(optimizer.max)
@@ -179,7 +179,7 @@ class Pipeline:
                             help="Specify where as to save the run to mlflow experiments")
         parser.add_argument("-v", "--verbose", dest="verbose", action="store_true", required=False,
                             help="Specify if you want to print out all of the outputs and graphs")
-        parser.add_argument("--save-fdhh", dest="save_fdhh", action="store_true", required=False,
+        parser.add_argument("--save-f", dest="save_features", action="store_true", required=False,
                             help="Specify where as to store the FDHH features or not")
         
         options = parser.parse_args()

@@ -61,6 +61,7 @@ def scale(X_train, X_test, scale_type='minmax', axis=None, use_boxcox=False, box
 
 def boxcox_transform(X_train, X_test, axis=None):
 	# Used to add before boxcox transformation to ensure all values are positive
+	
 	sv = 1
 	if axis:
 		for i in range(X_train.shape[1]):
@@ -93,3 +94,31 @@ def pca_transform(X_train, X_test, pca_components, use_pandas=False):
 		                  pd.DataFrame(X_test, index=test_idx)
 		
 	return X_train, X_test, pca_components
+
+"""
+	def boxcox_transform(self, X_train, X_test):
+		# TODO: add feature-wise boxcox transformation
+		train_shape = X_train.shape
+		test_shape = X_test.shape
+		
+		if self.options.verbose:
+			print('Performing boxcox transformation')
+			fig, (ax1, ax2) = plt.subplots(1, 2)
+			fig.suptitle('Comparing distributions before (left) and after (right) boxcox transformation')
+			ax1.hist(X_train.flatten(), label='train')
+			ax1.hist(X_test.flatten(), label='test')
+			ax1.legend()
+			
+		# Used to add before boxcox transformation to ensure all values are positive
+		sv = 0.0001
+		X_train, maxlog = boxcox(X_train.flatten() + sv)
+		X_train = X_train.reshape(train_shape)
+		X_test = boxcox(X_test.flatten() + sv, maxlog).reshape(test_shape)
+		
+		if self.options.verbose:
+			ax2.hist(X_train.flatten(), label='train')
+			ax2.hist(X_test.flatten(), label='test')
+			ax2.legend()
+			
+		return X_train, X_test
+"""

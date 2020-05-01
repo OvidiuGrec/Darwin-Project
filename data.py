@@ -151,9 +151,7 @@ class Data:
 
 	def load_video_features(self):
 		video_data = list(self.video.get_video_data())
-		if self.video.fdhh:
-			video_data = self.prep_features(video_data)
-		return video_data
+		return self.prep_features(video_data)
 
 	def load_audio_features(self):
 		audio_data = list()
@@ -180,7 +178,8 @@ class Data:
 	def prep_features(self, data):
 		for i, part in enumerate(data):
 			part.index = self.filename_to_index(part.index)
-			data[i] = self.combine_tasks(part)
+			if self.video.fdhh:
+				data[i] = self.combine_tasks(part)
 		return data
 
 	@staticmethod
@@ -229,70 +228,5 @@ class Data:
 			new_index : pd.MultiIndex
 				A pandas MultiIndex corresponding to (patient_rep, task)
 		"""
-		new_index = [(f'{n[0]}_{n[1]}', n[2]) for n in [x.split('_') for x in index]]
+		new_index = [(f'{n[0]}_{n[1]}', n[2]) for n in [x.split('_') for x in index.get_level_values(0)]]
 		return pd.MultiIndex.from_tuples(new_index)
-	
-	def boxcox_transform(self, X_train, X_test):
-		# TODO: add feature-wise boxcox transformation
-		train_shape = X_train.shape
-		test_shape = X_test.shape
-		
-		if self.options.verbose:
-			print('Performing boxcox transformation')
-			fig, (ax1, ax2) = plt.subplots(1, 2)
-			fig.suptitle('Comparing distributions before (left) and after (right) boxcox transformation')
-			ax1.hist(X_train.flatten(), label='train')
-			ax1.hist(X_test.flatten(), label='test')
-			ax1.legend()
-		
-		# Used to add before boxcox transformation to ensure all values are positive
-		sv = 0.0001
-		X_train, maxlog = boxcox(X_train.flatten() + sv)
-		X_train = X_train.reshape(train_shape)
-		X_test = boxcox(X_test.flatten() + sv, maxlog).reshape(test_shape)
-		
-		if self.options.verbose:
-			ax2.hist(X_train.flatten(), label='train')
-			ax2.hist(X_test.flatten(), label='test')
-			ax2.legend()
-			
-		return X_train, X_test
-	
-	@staticmethod
-	def scale(X_train, X_test, scale='minmax', scale_over='feature'):
-		# TODO: add visualization
-		if scale == 'minmax':
-			if scale_over == 'feature':
-				min_ = np.min(X_train, axis=0)
-				max_ = np.max(X_train, axis=0)
-			elif scale_over == 'full':
-				min_ = np.min(X_train)
-				max_ = np.max(X_test)
-			
-			diff = max_ - min_
-			diff[diff == 0] = 1
-			X_train = (X_train - min_) / diff
-			X_test = (X_test - min_) / diff
-			
-		elif scale == 'standard':
-			if scale_over == 'feature':
-				mean = np.mean(X_train, axis=0)
-				std = np.std(X_train, axis=0)
-			else:
-				mean = np.mean(X_train)
-				std = np.std(X_train)
-			
-			X_train = (X_train - mean) / std
-			X_test = (X_test - mean) / std
-		
-		return X_train, X_test
-	
-	@staticmethod
-	def pca_transform(X_train, X_test, pca_components=0.9):
-		# TODO: add visualization
-		if pca_components < 1:
-			pca = PCA().fit(X_train)
-			pca_components = np.where(np.cumsum(pca.explained_variance_ratio_) > pca_components)[0][0]
-			mlflow.log_param('n_features', pca_components)
-		pca = PCA(n_components=pca_components).fit(X_train)
-		return pca.transform(X_train), pca.transform(X_test)

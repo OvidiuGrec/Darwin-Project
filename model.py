@@ -9,6 +9,7 @@ from keras.models import Sequential
 from keras.layers import Dense, Dropout, LSTM
 from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping
+from keras.regularizers import L1L2
 
 
 class DepressionModel:
@@ -104,10 +105,14 @@ class DepressionModel:
 	def VanilaLSTM(self):  # Long-Short-Term-Memory Network
 		try:
 			pars = self.pars['VanilaLSTM']['model']
+			ker_reg = L1L2(l1=pars['ker_reg1'], l2=pars['ker_reg2'])
+			rec_reg = L1L2(l1=pars['rec_reg1'], l2=pars['rec_reg2'])
 			model = Sequential()
-			model.add(LSTM(pars['l1'], input_shape=(self.in_shape[1], self.in_shape[2]), activation='relu'))
+			model.add(LSTM(pars['l1'], input_shape=(self.in_shape[1], self.in_shape[2]), activation='relu',
+			               recurrent_regularizer=rec_reg, kernel_regularizer=ker_reg))
+			model.add(Dropout(pars['d1']))
 			model.add(Dense(pars['l2'], activation='relu'))
-			# model.add(Dropout([pars['d1']]))
+			model.add(Dropout(pars['d2']))
 			model.add(Dense(1, activation='linear'))
 			
 			model.compile(loss='mean_squared_error', optimizer=Adam(lr=pars['lr']))

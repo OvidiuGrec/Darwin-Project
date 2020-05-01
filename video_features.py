@@ -30,7 +30,7 @@ class VideoFeatures:
 		self.feature_folder = f'{self.folders["video_folder"]}/{self.vgg_v}_{self.vgg_l}'
 		if not self.fdhh:
 			try:
-				self.seq_length = pars[config['model']['video_model']]['data']['seq_length']
+				self.seq_length = pars[config['video']['video_model']]['data']['seq_length']
 			except KeyError:
 				raise Exception('No sequence length provided from LSTM model under data section in parameters.')
 
@@ -44,37 +44,35 @@ class VideoFeatures:
 			X_train, X_test
 			
 		"""
+		feature_str = 'fdhh' if self.fdhh else 'pca'
 		if self.options.mode == 'test':
-			fdhh_path = (f'{self.feature_folder}_FD', f'train_test_fdhh.pic')
+			feature_path = (f'{self.feature_folder}_FD', f'train_test_{feature_str}.pic')
 		else:
-			fdhh_path = (f'{self.feature_folder}_FD', f'train_dev_fdhh.pic')
+			feature_path = (f'{self.feature_folder}_FD', f'train_dev_{feature_str}.pic')
 			
-		# Return fdhh data if exists:
-		if self.fdhh and not self.options.save_fdhh:
-			if os.path.exists(f'{fdhh_path[0]}/{fdhh_path[1]}'):
-				return load_from_file(f'{fdhh_path[0]}/{fdhh_path[1]}')
-			
-		X_train, X_test = self.get_train_test()
-		
-		if self.options.verbose:
-			print('Scaling video features...')
-		scaler = MinMaxScaler().fit(X_train)
-		X_train = scaler.transform(X_train)
-		X_test = scaler.transform(X_test)
-		
-		if self.fdhh:
-			if self.options.verbose:
-				print('Performing FDHH over train and test set... \n')
-			meta = {i: 'f8' for i in range(X_train.shape[1]*self.pars['FDHH']['pattern_len'])}
-			X_train = X_train.groupby('file').apply(self.FDHH, meta=meta).compute()
-			X_test = X_test.groupby('file').apply(self.FDHH, meta=meta).compute()
-			if self.options.save_fdhh:
-				save_to_file(fdhh_path[0], fdhh_path[1], (X_train, X_test))
+		# Return saved features if exists:
+		if not self.options.save_features and os.path.exists(f'{feature_path[0]}/{feature_path[1]}'):
+			X_train, X_test = load_from_file(f'{feature_path[0]}/{feature_path[1]}')
 		else:
-			if self.options.verbose:
-				print('Reducing dimensionality using PCA... \n')
-			n_components = self.pars['PCA']['per_frame_components']
-			X_train, X_test, _ = pca_transform(X_train.compute(), X_test.compute(), n_components, use_pandas=True)
+			X_train, X_test = self.get_train_test()
+			if self.fdhh:
+				if self.options.verbose:
+					print('Performing FDHH over train and test set... \n')
+				meta = {i: 'f8' for i in range(X_train.shape[1]*self.pars['FDHH']['pattern_len'])}
+				X_train = X_train.groupby('file').apply(self.FDHH, meta=meta).compute()
+				X_test = X_test.groupby('file').apply(self.FDHH, meta=meta).compute()
+			else:
+				if self.options.verbose:
+					print('Reducing dimensionality using PCA... \n')
+				n_components = self.pars['PCA']['per_frame_components']
+				X_train, X_test = X_train.compute(), X_test.compute()
+				X_train, X_test, _ = pca_transform(X_train, X_test, n_components, use_pandas=True)
+				
+		if self.options.save_features:
+			save_to_file(feature_path[0], feature_path[1], (X_train, X_test))
+			self.options.save_features = False
+		
+		if not self.fdhh:
 			X_train = self.split_videos(X_train)
 			X_test = self.split_videos(X_test)
 			
@@ -118,6 +116,13 @@ class VideoFeatures:
 		else:
 			X_train, X_test = tuple(all_data)
 		del all_data
+		
+		if self.options.verbose:
+			print('Scaling video features...')
+		scaler = MinMaxScaler().fit(X_train)
+		X_train = scaler.transform(X_train)
+		X_test = scaler.transform(X_test)
+		
 		return X_train, X_test
 	
 	def encode_videos(self):
@@ -339,14 +344,15 @@ class VideoFeatures:
 	
 	def split_videos(self, video_data):
 		files_idx = video_data.index.get_level_values(0)
-		frame_idx = np.hstack([np.arange(len(np.where(files_idx == f))) for f in files_idx.unique()])
+		files = files_idx.unique()
+		frame_idx = np.hstack([np.arange(len(np.where(files_idx == f)[0])) for f in files])
 		video_data.index = pd.MultiIndex.from_tuples(zip(files_idx, frame_idx))
 		new_idx = []
-		for file in files_idx.unique():
+		for file in files:
 			frames = frame_idx[np.where(files_idx == file)]
 			cut_b = frames[-1] % self.seq_length
 			frames = frames[cut_b+1:]
-			new_idx += list(zip(np.repeat(file, len(frames)), frames.values))
+			new_idx += list(zip(np.repeat(file, len(frames)), frames))
 		return video_data.loc[new_idx]
 	
 	@staticmethod
