@@ -14,13 +14,16 @@ from helper import save_to_file, load_from_file
 class AudioFeatures:
     
     def __init__(self, config):
+        self.allowed_features = ['avec', 'xcorr', 'mfcc']
+        self.allowed_prefixes = tuple(['eegmaps', 'xcorr'])
+
         folders = config['folders']
         self.raw_audio_dir = Path(folders['raw_audio_folder']) if 'raw_audio_folder' in folders else None
         self.seg_audio_dir = Path(folders['seg_audio_folder']) if 'seg_audio_folder' in folders else None
         self.features_dir = Path(folders['audio_folder'])
 
         self.feature_type = config['general']['audio_features'].lower()
-        if self.feature_type not in ['avec', 'xcorr'] and not self.feature_type.startswith('egemaps'):
+        if self.feature_type not in self.allowed_features and not self.feature_type.startswith(self.allowed_prefixes):
             raise ValueError("feature_type should be either 'AVEC', 'XCORR', 'EGEMAPS' or 'EGEMAPS_X'")
         self.__setup_opensmile()
 
@@ -68,10 +71,16 @@ class AudioFeatures:
                 target_file.parent.mkdir(parents=True)
 
             # run shell opensmile command (not tested on Windows)
+            if self.feature_type == 'mfcc':
+                output_sink = '-arffoutput'
+            else:
+                output_sink = '-O'
             if sys.platform.startswith('linux'):
-                subprocess.run(['SMILExtract', '-C', str(self.__config_file), '-I', str(paths[i]), '-O', str(target_file)])
+                subprocess.run(['SMILExtract', '-C', str(self.__config_file),
+                                '-I', str(paths[i]), output_sink, str(target_file), '-l', '1'])
             elif sys.platform.startswith('win32'):
-                subprocess.run(['SMILExtract_Release.exe', '-C', str(self.__config_file), '-I', str(paths[i]), '-O', str(target_file)])
+                subprocess.run(['SMILExtract_Release.exe', '-C', str(self.__config_file),
+                                '-I', str(paths[i]), output_sink, str(target_file), '-l', '1'])
 
     def build_feature_sets(self):
         print('Building audio feature sets...')
@@ -91,7 +100,7 @@ class AudioFeatures:
             path = paths[i]
             regex = r"(Development|Testing|Training)/(Freeform|Northwind)"
             [(partition, task)] = re.findall(regex, '/'.join(path.parts))
-            if self.feature_type == 'avec' or self.feature_type.startswith('egemaps'):
+            if self.feature_type in ['avec', 'mfcc'] or self.feature_type.startswith('egemaps'):
                 file_name = path.parent.name
             else:
                 file_name = path.name
@@ -130,7 +139,7 @@ class AudioFeatures:
         try:
             return self.__load_features(partition)
         except FileNotFoundError:
-            if self.feature_type == 'avec' or self.feature_type.startswith('egemaps'):
+            if self.feature_type in ['avec', 'mfcc'] or self.feature_type.startswith('egemaps'):
                 self.segment_audio_files()
                 self.extract_opensmile_features()
             self.build_feature_sets()
@@ -142,6 +151,10 @@ class AudioFeatures:
 
         f_free = load_from_file(file_dir / f'{partition}_freeform.pkl')
         f_north = load_from_file(file_dir / f'{partition}_northwind.pkl')
+
+        if self.feature_type == 'xcorr_toolkit':
+            f_free = xcorr.parse_data_frame(f_free, 'Freeform')
+            f_north = xcorr.parse_data_frame((f_north), 'Northwind')
 
         f_free.index = [re.search(r"\d{3}_\d+", i).group() for i in f_free.index]
         f_north.index = [re.search(r"\d{3}_\d+", i).group() for i in f_north.index]
@@ -191,6 +204,9 @@ class AudioFeatures:
             self.__audio_dir = self.raw_audio_dir
         elif self.feature_type.startswith('egemaps'):
             self.__config_file = Path('tools/openSMILE/config/gemaps/eGeMAPSv01a.conf')
+            self.__audio_dir = self.seg_audio_dir
+        elif self.feature_type.startswith('mfcc'):
+            self.__config_file = Path('tools/openSMILE/config/MFCC12_E_D_A.conf')
             self.__audio_dir = self.seg_audio_dir
 
     # def get_labels(partition, labels_dir='data/labels/AVEC2014_Labels'):

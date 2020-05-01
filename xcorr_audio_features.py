@@ -192,3 +192,12 @@ def get_features(partition):
             f_all[fk][f] = np.mean((f_all[fk][f], f_north[k][f]), axis=0)
 
     return np.array([f_all[k] for k in sorted(f_all)])
+
+def parse_data_frame(self, data, task):
+    data = data[task]
+    df = pd.DataFrame([])
+
+    for k in data:
+        df[k] = np.hstack(tuple(data[k].values()))
+
+    return df.T
