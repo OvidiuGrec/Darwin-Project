@@ -17,7 +17,7 @@ class Pipeline:
 
     def __init__(self):
         
-        self.int_pars = ['l1', 'l2', 'batch_size', 'epochs']
+        self.int_pars = ['l1', 'l2', 'batch_size', 'epochs', 'pattern_len', 'seq_length']
         self.no_log = ['experiment', 'seed', 'folders', 'config_location', 'feature_type']
         
         self.options = self.parse_options()
@@ -49,6 +49,7 @@ class Pipeline:
 
         if kwargs:
             self.adjust_pars(kwargs)
+            self.data = Data(self.config, self.options, self.pars)
 
         if self.options.mlflow:
             mlflow.set_experiment(self.config['general']['experiment'])
@@ -88,7 +89,6 @@ class Pipeline:
         model = DepressionModel(feature_type, self.config[feature_type], input_shape, pars=self.pars)
 
         model.train(X_train, y_train)
-        # TODO: log metrics through out the run
 
         train_mae, train_rmse, pred_train = model.validate_model(X_train, y_train)
         test_mae, test_rmse, pred_test = model.validate_model(X_test, y_test)
@@ -98,16 +98,21 @@ class Pipeline:
         return pred_train, pred_test, y_train, y_test, test_mae
 
     def optimize(self):
+        self.options.opt = False
         pbounds = {}
         for k0, v0 in self.pars.items():
             for k1, v1 in v0.items():
-                for k2, v2 in v1.items():
-                    if isinstance(v2, (list, tuple)):
-                        pbounds[k2] = v2
+                try:
+                    for k2, v2 in v1.items():
+                        if isinstance(v2, (list, tuple)):
+                            pbounds[k2] = v2
+                except AttributeError:
+                    if isinstance(v1, (list, tuple)):
+                        pbounds[k1] = v1
     
         opt_part = partial(self.run_experiment, use_mlflow=False)
         optimizer = BayesianOptimization(f=opt_part, pbounds=pbounds, verbose=2, random_state=1)
-        optimizer.maximize(init_points=10, n_iter=30)
+        optimizer.maximize(init_points=5, n_iter=10)
         for i, res in enumerate(optimizer.res):
             print("Iteration {}: \n\t{}".format(i, res))
         print(optimizer.max)
@@ -143,9 +148,13 @@ class Pipeline:
                     try:
                         for k2, v2 in v1.items():
                             if k2 == key:
+                                if k2 in self.int_pars:
+                                    value = int(value)
                                 v1[k2] = value
                     except AttributeError:
                         if k1 == key:
+                            if k1 in self.int_pars:
+                                value = int(value)
                             v0[k1] = value
     
     @staticmethod
@@ -217,19 +226,19 @@ class Pipeline:
         combined['fusion'] = parser.get("combined", "fusion")
         combined['prediction_weights'] = parser.get("combined", "prediction_weights")
         combined['combined_scaler'] = parser.get("combined", "combined_scaler")
-        combined['combined_scale_over'] = parser.get("combined", 'combined_scale_over')
+        combined['combined_scale_axis'] = parser.get("combined", 'combined_scale_axis')
         
         audio = config['audio']
         audio['audio_model'] = parser.get("audio", "audio_model")
         audio['audio_model_weights'] = parser.get("audio", "audio_model_weights")
         audio['audio_scaler'] = parser.get("audio", "audio_scaler")
-        audio['audio_scale_over'] = parser.get("audio", 'audio_scale_over')
+        audio['audio_scale_axis'] = parser.get("audio", 'audio_scale_axis')
 
         video = config['video']
         video['video_model'] = parser.get("video", "video_model")
         video['video_model_weights'] = parser.get("video", "video_model_weights")
         video['video_scaler'] = parser.get("video", "video_scaler")
-        video['video_scale_over'] = parser.get("video", 'video_scale_over')
+        video['video_scale_axis'] = parser.get("video", 'video_scale_axis')
         
         folders = config['folders']
         folders['raw_video_folder'] = parser.get("folders", "raw_video_folder")
@@ -246,18 +255,6 @@ class Pipeline:
     def load_pars(self):
         with open(self.options.pars, 'r') as f:
             pars = json.load(f)
-        
-        # Convert all lists to tuples for optimization
-        for k0, v0 in pars.items():
-            for k1, v1 in pars[k0].items():
-                try:
-                    for k2, v2 in v0[k1].items():
-                        if isinstance(v2, list):
-                            v1[k2] = tuple(v2)
-                except AttributeError:
-                    if isinstance(v1, list):
-                        v0[k1] = tuple(v1)
-                        
         return pars
 
 

@@ -1,16 +1,18 @@
 import os
+import gc
 import cv2
+import progressbar
 import numpy as np
 import pandas as pd
 from sys import platform
-
-from sklearn.preprocessing import MinMaxScaler
-from helper import save_to_file, load_from_file
 
 from mtcnn import MTCNN
 from keras import Model
 from keras_vggface.vggface import VGGFace
 from keras_vggface.utils import preprocess_input
+
+from helper import save_to_file, load_from_file
+from preprocess import scale, pca_transform
 
 
 class VideoFeatures:
@@ -23,68 +25,105 @@ class VideoFeatures:
 		self.vgg_v, self.vgg_l, fdhh = config['general']['video_features'].split('_')
 		self.fdhh = bool(fdhh)
 		self.feature_folder = f'{self.folders["video_folder"]}/{self.vgg_v}_{self.vgg_l}'
+		if not self.fdhh:
+			try:
+				self.seq_length = pars[config['model']['video_model']]['data']['seq_length']
+			except KeyError:
+				raise Exception('No sequence length provided from LSTM model under data section in parameters.')
 
-	def get_video_data(self, data_part):
+	def get_video_data(self):
 		"""
 			Returns video feature data depending on parameter provided in config file.
 			Performs fdhh algorithm if required otherwise return raw video (WARNING: Potential RAM overflow)
 
-			Parameters
-			----------
-			data_part : str
-				A folder from which to extract data from. Should be either Training/Development/Testing
-
 			Returns
 			-------
-			faces : ndarray (? * ? * ? * 3)
-				An array of faces corresponding to each frame in the video. Leaves nan values if a face is missing
+			X_train, X_test
+			
 		"""
-
-		data_path = f'{self.feature_folder}/{data_part}'
-		scaler_path = (self.folders['models_folder'], f'{self.vgg_v}_{self.vgg_l}_scaler')
-		fdhh_path = (f'{self.feature_folder}_FD', f'{data_part}.pic')
-
-		if self.fdhh and os.path.exists(f'{fdhh_path[0]}/{fdhh_path[1]}') and not self.options.save_fdhh:
-			return load_from_file(f'{fdhh_path[0]}/{fdhh_path[1]}')
-
-		if not os.path.exists(data_path):
-			self.encode_videos()
-
-		if data_part == 'Training':
-			scaler = self.video_min_max(data_path)
-			save_to_file(scaler_path[0], scaler_path[1], scaler)
-		elif data_part == 'Development' and self.options.mode == 'test':
-			scaler = load_from_file(f'{scaler_path[0]}/{scaler_path[1]}')
-			scaler = self.video_min_max(data_path, scaler)
-			save_to_file(scaler_path[0], scaler_path[1], scaler)
+		if self.options.mode == 'test':
+			fdhh_path = (f'{self.feature_folder}_FD', f'train_test_fdhh.pic')
 		else:
-			scaler = load_from_file(f'{scaler_path[0]}/{scaler_path[1]}')
-
-		files = os.listdir(data_path)
+			fdhh_path = (f'{self.feature_folder}_FD', f'train_dev_fdhh.pic')
+			
+		# Return fdhh data if exists:
+		if self.fdhh and not self.options.save_fdhh:
+			if os.path.exists(f'{fdhh_path[0]}/{fdhh_path[1]}'):
+				return load_from_file(f'{fdhh_path[0]}/{fdhh_path[1]}')
+			
+		X_train, X_test = self.get_train_test()
+		
+		if self.options.verbose:
+			print('Scaling video features...')
+		X_train, X_test = scale(X_train, X_test, scale_type='minmax', axis=0, use_pandas=True)
+		
 		if self.fdhh:
-			fdhh_data = pd.DataFrame()
-			for file in files:
-				video_data = scaler.transform(load_from_file(f'{data_path}/{file}'))
-				fdhh_data[file[:-4]] = self.FDHH(video_data).flatten()
-			fdhh_data = fdhh_data.transpose()
+			if self.options.verbose:
+				print('Performing FDHH over train and test set... \n')
+			X_train = X_train.groupby(level=0).apply(self.FDHH)
+			X_test = X_test.groupby(level=0).apply(self.FDHH)
 			if self.options.save_fdhh:
-				save_to_file(fdhh_path[0], fdhh_path[1], fdhh_data)
-			return fdhh_data
+				save_to_file(fdhh_path[0], fdhh_path[1], (X_train, X_test))
 		else:
-			# TODO: Aggregate all raw video data (Maybe use Tensorflow generator?)
-			return None
-
+			if self.options.verbose:
+				print('Reducing dimensionality using PCA... \n')
+			# TODO: allow to chose PCA components from config file
+			X_train, X_test, _ = pca_transform(X_train, X_test, pca_components=100, use_pandas=True)
+			X_train = self.split_videos(X_train)
+			X_test = self.split_videos(X_test)
+			
+		return X_train, X_test
+	
+	def get_train_test(self):
+		
+		if self.options.verbose:
+			print(f'Putting together video data... \n')
+		
+		data_parts = ['Training', 'Development']
+		if self.options.mode == 'test':
+			data_parts.append('Testing')
+		all_data = []
+		
+		for data_part in data_parts:
+			
+			data_path = f'{self.feature_folder}/{data_part}'
+			if not os.path.exists(data_path):
+				self.encode_videos()
+				
+			files = os.listdir(data_path)
+			
+			# Pre-allocate memory for the DataFrame:
+			idx = []
+			for file in files:
+				size, n_features = load_from_file(f'{data_path}/{file}').shape
+				idx += list(zip(np.repeat(file[:-4], size), np.arange(size)))
+			all_videos = pd.DataFrame(data=np.empty((len(idx), n_features)), index=pd.MultiIndex.from_tuples(idx),
+			                          columns=[f'f{i}' for i in np.arange(n_features)])
+			
+			# Extract videos and put into DataFrame:
+			for file in files:
+				all_videos.loc[file[:-4]] = load_from_file(f'{data_path}/{file}')
+			all_data.append(all_videos)
+			del all_videos
+		
+		if self.options.mode == 'test':
+			X_train, X_test = pd.concat([all_data[0], all_data[1]]), all_data[2]
+		else:
+			X_train, X_test = tuple(all_data)
+		del all_data
+		return X_train, X_test
+	
 	def encode_videos(self):
 		"""
 			Extracts vgg encoding from each of the frames in each video and stores those in a separate folder.
 			Only need to be ran once for each vgg model.
 		"""
 		
-		face_detector = MTCNN()
-		encoder = self.get_vggface()
+		self.face_detector = MTCNN()
+		self.encoder = self.get_vggface()
 		
 		folder = self.folders['raw_video_folder']
-
+		
 		for (dirpath, _, filenames) in os.walk(folder):
 			if platform == 'linux' or platform == 'linux2' or platform == 'darwin':
 				# linux and OSX
@@ -93,17 +132,20 @@ class VideoFeatures:
 				# windows
 				split_path = dirpath.split('\\')
 			if filenames:
-				for file in filenames:
+				if self.options.verbose:
+					print(f'Extracting features from {dirpath}')
+				for file in progressbar.progressbar(filenames):
 					encode_path = (f'{self.feature_folder}/{split_path[-2]}', f'{file[:14]}.pic')
 					coord_path = (f'{self.folders["facial_data"]}', f'{file[:14]}.pic')
 					if file.endswith('.mp4') and not os.path.exists(f'{encode_path[0]}/{encode_path[1]}'):
-						print(f'Extracting features from {file}')
-						faces, coords = self.video_faces(f'{dirpath}/{file}', f'{coord_path[0]}/{coord_path[1]}', face_detector)
-						encoding = self.vggface_encoding(faces, encoder)
+						faces, coords = self.video_faces(f'{dirpath}/{file}', f'{coord_path[0]}/{coord_path[1]}')
+						encoding = self.vggface_encoding(faces)
 						save_to_file(coord_path[0], coord_path[1], coords)
 						save_to_file(encode_path[0], encode_path[1], encoding.reshape(encoding.shape[0], -1))
-
-	def video_faces(self, video_path, coord_path, face_detector):
+						del faces, encoding
+						gc.collect()
+						
+	def video_faces(self, video_path, coord_path):
 		"""
 			 Extracts faces from a video returning array of rgb images of faces
 
@@ -114,9 +156,6 @@ class VideoFeatures:
 				 
 			 coord_path : str
 			     Folder location and file name of the file with face coordinates
-			     
-			 face_detector : object
-			     MTCNN network for face detection
 			     
 			 Returns
 			 -------
@@ -141,7 +180,8 @@ class VideoFeatures:
 
 		faces = np.empty(shape=(n_frames, self.input_size[0], self.input_size[1], self.input_size[2]))
 		faces[:] = np.nan
-
+		
+		n_nan = 0
 		i = -1
 		while cap.isOpened():
 			ret, frame = cap.read()
@@ -149,21 +189,27 @@ class VideoFeatures:
 				i += 1
 				frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 				if not coords_present:
-					all_coords[i] = self.get_face_coords(frame, face_detector)
+					all_coords[i] = self.get_face_coords(frame)
 				c = all_coords[i]
 				if (c == -1).all():
+					n_nan += 1
 					continue
 				else:
 					face = frame[c[0]:c[1], c[2]:c[3]]
-					faces[i] = cv2.resize(face, (self.input_size[0], self.input_size[1])).astype('float64')
+				faces[i] = cv2.resize(face, (self.input_size[0], self.input_size[1])).astype('float64')
 			else:
 				break
 		cap.release()
-
+		
+		if n_nan > 0:
+			faces = self.fill_nan(faces)
+			if self.options.verbose:
+				print(f'Total number of NaN frames before interpolation in {video_path} is {n_nan}')
+				print(f'Reduced to {np.count_nonzero(np.isnan(faces))/(224*224*3)}')
+			
 		return faces, all_coords
 	
-	@staticmethod
-	def get_face_coords(frame, face_detector):
+	def get_face_coords(self, frame):
 		"""
 			Detects and extracts a face from the image
 
@@ -172,8 +218,6 @@ class VideoFeatures:
 			frame : ndarray (? * ? * 3)
 				An RGB array of image
 				
-			face_detector : MTCNN network for face detection
-				
 			Returns
 			-------
 			face : 4-tuple
@@ -181,7 +225,7 @@ class VideoFeatures:
 		"""
 
 		try:
-			results = face_detector.detect_faces(frame)  # Detects faces in the image
+			results = self.face_detector.detect_faces(frame)  # Detects faces in the image
 
 			x1, y1, width, height = results[0]['box']  # Bounding box of first face
 			x1, y1 = abs(x1), abs(y1)  # bug fix...
@@ -190,8 +234,7 @@ class VideoFeatures:
 			x1, x2, y1, y2 = -1, -1, -1, -1
 		return y1, y2, x1, x2
 	
-	@staticmethod
-	def vggface_encoding(faces, encoder):
+	def vggface_encoding(self, faces):
 		"""
 			Encodes an image of a face into a lower dimensional representation
 			Parameters
@@ -208,8 +251,8 @@ class VideoFeatures:
 				Feature-vector of a face representations
 		"""
 
-		inputs = preprocess_input(faces, version=2)  # TODO: 1 for VGG and 2 for others
-		yhat = encoder.predict(inputs)
+		inputs = preprocess_input(faces, version=1)  # TODO: 1 for VGG and 2 for others
+		yhat = self.encoder.predict(inputs)
 		return yhat
 
 	def get_vggface(self):
@@ -237,7 +280,7 @@ class VideoFeatures:
 		# this returns layer-specific features:
 		wanted_layer = layers_select[self.vgg_l]
 		# TODO: change include top depending on the architecture
-		vgg_model = VGGFace(model=model_select[self.vgg_v], input_shape=(224, 224, 3), include_top=False)
+		vgg_model = VGGFace(model=model_select[self.vgg_v], input_shape=(224, 224, 3), include_top=True)
 
 		out = vgg_model.get_layer(wanted_layer).output
 		vgg_model_custom_layer = Model(inputs=vgg_model.input, outputs=out)
@@ -260,6 +303,8 @@ class VideoFeatures:
 			encoding : fdhh (M * C)
 				Feature vector of consequtive change in pixel values for M number of changes for each pixel C.
 		"""
+		video = video.values
+		
 		fdhh_pars = self.pars['FDHH']
 		
 		frames, components = video.shape  # (N, C) in the paper
@@ -282,18 +327,23 @@ class VideoFeatures:
 				elif count > pattern_len:
 					fdhh[c, pattern_len - 1] += 1
 					count = 0
-
-		return fdhh
-
+		
+		return pd.Series(fdhh.flatten())
+	
+	def split_videos(self, video_data):
+		files_idx = video_data.index.get_level_values(0)
+		frame_idx = video_data.index.get_level_values(1)
+		new_idx = []
+		for file in files_idx.unique():
+			frames = frame_idx[np.where(files_idx == file)]
+			cut_b = frames[-1] % self.seq_length
+			frames = frames[cut_b+1:]
+			new_idx += list(zip(np.repeat(file, len(frames)), frames.values))
+		return video_data.loc[new_idx]
+	
 	@staticmethod
-	def video_min_max(folder, scaler=None):
-
-		files = os.listdir(folder)
-		if not scaler:
-			scaler = MinMaxScaler()
-
-		for file in files:
-			video_data = load_from_file(f'{folder}/{file}')
-			scaler.partial_fit(video_data)
-
-		return scaler
+	def fill_nan(faces):
+		init_shape = faces.shape
+		faces = pd.DataFrame(faces.reshape(init_shape[0], -1)).interpolate(axis=0, limit_direction='both')
+		faces = faces.values.reshape(init_shape)
+		return faces

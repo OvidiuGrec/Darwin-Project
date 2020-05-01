@@ -1,11 +1,12 @@
 import numpy as np
+import pandas as pd
 
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 from keras.models import Sequential
-from keras.layers import Dense, Dropout
+from keras.layers import Dense, Dropout, LSTM
 from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping
 
@@ -13,7 +14,7 @@ from keras.callbacks import EarlyStopping
 class DepressionModel:
 	
 	def __init__(self, feature_type, config, input_shape, pars=None):
-		self.n_features = input_shape[1]
+		self.in_shape = input_shape
 		self.config = config
 		self.pars = pars
 		self.model_names = config[f'{feature_type}_model'].split('+')
@@ -25,7 +26,8 @@ class DepressionModel:
 		model_switcher = {
 			'PLS': self.PLS(),
 			'LR': self.LR(),
-			'FNN': self.FNN()
+			'FNN': self.FNN(),
+			'VanilaLSTM': self.VanilaLSTM()
 		}
 		
 		models = []
@@ -55,8 +57,10 @@ class DepressionModel:
 		return final_pred
 	
 	def validate_model(self, X, y):
-		pred = self.predict(X)
-		mae, rmse = self.score(y, pred)
+		pred = pd.DataFrame(data=self.predict(X), index=y.index)
+		pred = pred.groupby(level=0).mean()
+		y = y.astype('float').groupby(level=0).mean()
+		mae, rmse = self.score(y.values, pred.values)
 		
 		return mae, rmse, pred
 
@@ -87,12 +91,27 @@ class DepressionModel:
 		try:
 			pars = self.pars['FNN']['model']
 			model = Sequential()
-			model.add(Dense(pars['l1'], input_dim=self.n_features, activation='relu'))
+			model.add(Dense(pars['l1'], input_dim=self.in_shape[1], activation='relu'))
 			model.add(Dropout(pars['d1']))
 			model.add(Dense(1, activation='linear'))
 			
 			model.compile(loss='mean_absolute_error', optimizer=Adam(lr=pars['lr']))
 			# self.pars['FNN']['train']['callbacks'] = [EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=100)]
+		except KeyError:
+			model = None
+		return model
+	
+	def VanilaLSTM(self):  # Long-Short-Term-Memory Network
+		try:
+			pars = self.pars['VanilaLSTM']['model']
+			model = Sequential()
+			model.add(LSTM(pars['l1'], input_shape=(self.in_shape[1], self.in_shape[2]), activation='relu'))
+			model.add(Dense(pars['l2'], activation='relu'))
+			# model.add(Dropout([pars['d1']]))
+			model.add(Dense(1, activation='linear'))
+			
+			model.compile(loss='mean_squared_error', optimizer=Adam(lr=pars['lr']))
+		# self.pars['FNN']['train']['callbacks'] = [EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=100)]
 		except KeyError:
 			model = None
 		return model
