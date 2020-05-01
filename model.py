@@ -107,6 +107,7 @@ class DepressionModel:
 			model = Sequential()
 			model.add(LSTM(pars['l1'], input_shape=(self.in_shape[1], self.in_shape[2]), activation='relu'))
 			model.add(Dense(pars['l2'], activation='relu'))
+			# model.add(Dropout([pars['d1']]))
 			model.add(Dense(1, activation='linear'))
 			
 			model.compile(loss='mean_squared_error', optimizer=Adam(lr=pars['lr']))

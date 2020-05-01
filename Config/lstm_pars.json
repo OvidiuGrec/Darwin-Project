@@ -1,18 +1,18 @@
 {
   "VanilaLSTM": {
     "model": {
-      "l1": 15,
-      "l2": 300,
-      "lr": 0.001
+      "l1": [10, 100],
+      "l2": [100, 1000],
+      "lr": [0.0001, 0.01]
     },
     "train": {
-      "epochs": 30,
-      "batch_size": 128,
+      "epochs": [10, 100],
+      "batch_size": 32,
       "verbose": 0,
       "validation_split": 0
     },
     "data": {
-      "seq_length": 20
+      "seq_length": [10, 100]
     }
   },
 

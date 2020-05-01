@@ -10,6 +10,7 @@ from sklearn.decomposition import PCA
 
 from video_features import VideoFeatures
 from audio_features import AudioFeatures
+from preprocess import scale, pca_transform
 
 
 class Data:
@@ -86,37 +87,47 @@ class Data:
 			X_train, X_test : np.array (n, n_in)
 				Scaled and reduced features
 		"""
-		scaler = self.config[feature_type][f'{feature_type}_scaler'].split('+')
-		scale_over = self.config[feature_type][f'{feature_type}_scale_over'].split('+')
-		if len(scaler) > 1:
+		
+		# Extract scaler information from config:
+		scalers = self.config[feature_type][f'{feature_type}_scaler'].split('+')
+		scaler_axis = self.config[feature_type][f'{feature_type}_scale_axis'].split('+')
+		if len(scalers) > 1:
 			scaler_idx = 1
+			use_boxcox = True
 		else:
 			scaler_idx = 0
+			use_boxcox = False
+		scaler = scalers[scaler_idx]
 		
-		if scaler[0] == 'boxcox':
-			X_train, X_test = self.boxcox_transform(X_train, X_test)
-		
-		if scaler[scaler_idx] == 'minmax' or scaler[scaler_idx] == 'standard':
-			X_train, X_test = self.scale(X_train, X_test, scale=scaler[scaler_idx], scale_over=scale_over[scaler_idx])
+		for i in range(len(scaler_axis)):
+			if scaler_axis[i] == '':
+				scaler_axis[i] = None
+			else:
+				scaler_axis[i] = int(i)
+				
+		# Scale data:
+		if scaler == 'minmax' or scaler == 'standard':
+			X_train, X_test = scale(X_train, X_test, scale_type=scaler, axis=scaler_axis[scaler_idx],
+			                        use_boxcox=use_boxcox, boxcox_axis=scaler_axis[0])
 		elif self.options.verbose:
 			print('No scaler has been used before PCA. If this behaviour is unintentional check configurations.')
 			
+		# Perform PCA:
 		try:
 			pca_pars = self.pars['PCA'][f'{feature_type}_components']
-			X_train, X_test = self.pca_transform(X_train, X_test, pca_components=pca_pars)
+			X_train, X_test, n_features = pca_transform(X_train, X_test, pca_components=pca_pars)
+			mlflow.log_param(f'{feature_type}_n_features', n_features)
 		except KeyError:
 			if self.options.verbose:
 				print('No pca performed during preprocessing. If this behaviour is unintentional check parameters.')
-				
-		X_train, X_test = self.scale(X_train, X_test, scale='minmax')
+		X_train, X_test = scale(X_train, X_test, scale_type='minmax', axis=0)
 		
+		# Reshape for LSTM:
 		if feature_type == 'video' and not self.video.fdhh:
-			# Reshape for LSTM:
 			X_train = X_train.reshape(-1, self.seq_length, X_train.shape[-1])
 			X_test = X_test.reshape(-1, self.seq_length, X_test.shape[-1])
 			if self.options.verbose:
 				print(f"Training input shape for the LSTM is {X_train.shape}")
-			
 		return X_train, X_test
 
 	def load_labels(self):
@@ -139,11 +150,7 @@ class Data:
 		return labels.transpose()
 
 	def load_video_features(self):
-		train_video = self.video.get_video_data(data_part='Training')
-		dev_video = self.video.get_video_data(data_part='Development')
-		video_data = [train_video,  dev_video]
-		if self.options.mode == 'test':
-			video_data.append(self.video.get_video_data(data_part='Testing'))
+		video_data = list(self.video.get_video_data())
 		if self.video.fdhh:
 			video_data = self.prep_features(video_data)
 		return video_data
@@ -153,6 +160,7 @@ class Data:
 		audio_data.append(self.audio.get_features('training'))
 		audio_data.append(self.audio.get_features('development'))
 		if self.options.mode == 'test':
+			audio_data = [pd.concat(audio_data)]
 			audio_data.append(self.audio.get_features('testing'))
 		return self.prep_features(audio_data)
 	
@@ -223,70 +231,3 @@ class Data:
 		"""
 		new_index = [(f'{n[0]}_{n[1]}', n[2]) for n in [x.split('_') for x in index]]
 		return pd.MultiIndex.from_tuples(new_index)
-	
-	def boxcox_transform(self, X_train, X_test):
-		# TODO: add feature-wise boxcox transformation
-		train_shape = X_train.shape
-		test_shape = X_test.shape
-		
-		if self.options.verbose:
-			print('Performing boxcox transformation')
-			fig, (ax1, ax2) = plt.subplots(1, 2)
-			fig.suptitle('Comparing distributions before (left) and after (right) boxcox transformation')
-			ax1.hist(X_train.flatten(), label='train')
-			ax1.hist(X_test.flatten(), label='test')
-			ax1.legend()
-		
-		# Used to add before boxcox transformation to ensure all values are positive
-		sv = 1
-		X_train, maxlog = boxcox(X_train.flatten() + sv)
-		X_train = X_train.reshape(train_shape)
-		X_test = boxcox(X_test.flatten() + sv, maxlog).reshape(test_shape)
-		
-		if self.options.verbose:
-			ax2.hist(X_train.flatten(), label='train')
-			ax2.hist(X_test.flatten(), label='test')
-			ax2.legend()
-		
-		plt.show()
-			
-		return X_train, X_test
-	
-	@staticmethod
-	def scale(X_train, X_test, scale='minmax', scale_over='feature'):
-		# TODO: add visualization
-		if scale == 'minmax':
-			if scale_over == 'feature':
-				min_ = np.min(X_train, axis=0)
-				max_ = np.max(X_train, axis=0)
-			elif scale_over == 'full':
-				min_ = np.min(X_train)
-				max_ = np.max(X_test)
-			
-			diff = max_ - min_
-			diff[diff == 0] = 1
-			X_train = (X_train - min_) / diff
-			X_test = (X_test - min_) / diff
-			
-		elif scale == 'standard':
-			if scale_over == 'feature':
-				mean = np.mean(X_train, axis=0)
-				std = np.std(X_train, axis=0)
-			else:
-				mean = np.mean(X_train)
-				std = np.std(X_train)
-			
-			X_train = (X_train - mean) / std
-			X_test = (X_test - mean) / std
-		
-		return X_train, X_test
-	
-	@staticmethod
-	def pca_transform(X_train, X_test, pca_components=0.9):
-		# TODO: add visualization
-		if pca_components < 1:
-			pca = PCA().fit(X_train)
-			pca_components = np.where(np.cumsum(pca.explained_variance_ratio_) > pca_components)[0][0]
-			mlflow.log_param('n_features', pca_components)
-		pca = PCA(n_components=pca_components).fit(X_train)
-		return pca.transform(X_train), pca.transform(X_test)

@@ -89,7 +89,6 @@ class Pipeline:
         model = DepressionModel(feature_type, self.config[feature_type], input_shape, pars=self.pars)
 
         model.train(X_train, y_train)
-        # TODO: log metrics through out the run
 
         train_mae, train_rmse, pred_train = model.validate_model(X_train, y_train)
         test_mae, test_rmse, pred_test = model.validate_model(X_test, y_test)
@@ -113,7 +112,7 @@ class Pipeline:
     
         opt_part = partial(self.run_experiment, use_mlflow=False)
         optimizer = BayesianOptimization(f=opt_part, pbounds=pbounds, verbose=2, random_state=1)
-        optimizer.maximize(init_points=10, n_iter=30)
+        optimizer.maximize(init_points=5, n_iter=10)
         for i, res in enumerate(optimizer.res):
             print("Iteration {}: \n\t{}".format(i, res))
         print(optimizer.max)
@@ -227,19 +226,19 @@ class Pipeline:
         combined['fusion'] = parser.get("combined", "fusion")
         combined['prediction_weights'] = parser.get("combined", "prediction_weights")
         combined['combined_scaler'] = parser.get("combined", "combined_scaler")
-        combined['combined_scale_over'] = parser.get("combined", 'combined_scale_over')
+        combined['combined_scale_axis'] = parser.get("combined", 'combined_scale_axis')
         
         audio = config['audio']
         audio['audio_model'] = parser.get("audio", "audio_model")
         audio['audio_model_weights'] = parser.get("audio", "audio_model_weights")
         audio['audio_scaler'] = parser.get("audio", "audio_scaler")
-        audio['audio_scale_over'] = parser.get("audio", 'audio_scale_over')
+        audio['audio_scale_axis'] = parser.get("audio", 'audio_scale_axis')
 
         video = config['video']
         video['video_model'] = parser.get("video", "video_model")
         video['video_model_weights'] = parser.get("video", "video_model_weights")
         video['video_scaler'] = parser.get("video", "video_scaler")
-        video['video_scale_over'] = parser.get("video", 'video_scale_over')
+        video['video_scale_axis'] = parser.get("video", 'video_scale_axis')
         
         folders = config['folders']
         folders['raw_video_folder'] = parser.get("folders", "raw_video_folder")
