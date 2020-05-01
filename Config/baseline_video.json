@@ -7,8 +7,8 @@
   },
 
   "FDHH": {
-    "pattern_len": 5,
-    "thresh": 0.004
+    "pattern_len": [3, 7],
+    "thresh": [0.001, 0.1]
   },
 
   "PCA": {

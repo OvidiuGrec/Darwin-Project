@@ -6,13 +6,16 @@ import numpy as np
 import pandas as pd
 from sys import platform
 
+import dask.dataframe as dd
+from dask_ml.preprocessing import MinMaxScaler
+
 from mtcnn import MTCNN
 from keras import Model
 from keras_vggface.vggface import VGGFace
 from keras_vggface.utils import preprocess_input
 
 from helper import save_to_file, load_from_file
-from preprocess import scale, pca_transform
+from preprocess import pca_transform
 
 
 class VideoFeatures:
@@ -55,20 +58,23 @@ class VideoFeatures:
 		
 		if self.options.verbose:
 			print('Scaling video features...')
-		X_train, X_test = scale(X_train, X_test, scale_type='minmax', axis=0, use_pandas=True)
+		scaler = MinMaxScaler().fit(X_train)
+		X_train = scaler.transform(X_train)
+		X_test = scaler.transform(X_test)
 		
 		if self.fdhh:
 			if self.options.verbose:
 				print('Performing FDHH over train and test set... \n')
-			X_train = X_train.groupby(level=0).apply(self.FDHH)
-			X_test = X_test.groupby(level=0).apply(self.FDHH)
+			meta = {i: 'f8' for i in range(X_train.shape[1]*self.pars['FDHH']['pattern_len'])}
+			X_train = X_train.groupby('file').apply(self.FDHH, meta=meta).compute()
+			X_test = X_test.groupby('file').apply(self.FDHH, meta=meta).compute()
 			if self.options.save_fdhh:
 				save_to_file(fdhh_path[0], fdhh_path[1], (X_train, X_test))
 		else:
 			if self.options.verbose:
 				print('Reducing dimensionality using PCA... \n')
-			# TODO: allow to chose PCA components from config file
-			X_train, X_test, _ = pca_transform(X_train, X_test, pca_components=100, use_pandas=True)
+			n_components = self.pars['PCA']['per_frame_components']
+			X_train, X_test, _ = pca_transform(X_train.compute(), X_test.compute(), n_components, use_pandas=True)
 			X_train = self.split_videos(X_train)
 			X_test = self.split_videos(X_test)
 			
@@ -96,18 +102,19 @@ class VideoFeatures:
 			idx = []
 			for file in files:
 				size, n_features = load_from_file(f'{data_path}/{file}').shape
-				idx += list(zip(np.repeat(file[:-4], size), np.arange(size)))
-			all_videos = pd.DataFrame(data=np.empty((len(idx), n_features)), index=pd.MultiIndex.from_tuples(idx),
+				idx += list(np.repeat(file[:-4], size))
+			all_videos = pd.DataFrame(data=np.empty((len(idx), n_features)), index=idx,
 			                          columns=[f'f{i}' for i in np.arange(n_features)])
-			
+			all_videos.index = all_videos.index.rename('file')
 			# Extract videos and put into DataFrame:
 			for file in files:
 				all_videos.loc[file[:-4]] = load_from_file(f'{data_path}/{file}')
+			all_videos = dd.from_pandas(all_videos, npartitions=8)
 			all_data.append(all_videos)
 			del all_videos
 		
 		if self.options.mode == 'test':
-			X_train, X_test = pd.concat([all_data[0], all_data[1]]), all_data[2]
+			X_train, X_test = dd.concat([all_data[0], all_data[1]]), all_data[2]
 		else:
 			X_train, X_test = tuple(all_data)
 		del all_data
@@ -251,7 +258,7 @@ class VideoFeatures:
 				Feature-vector of a face representations
 		"""
 
-		inputs = preprocess_input(faces, version=1)  # TODO: 1 for VGG and 2 for others
+		inputs = preprocess_input(faces, version=2)  # TODO: 1 for VGG and 2 for others
 		yhat = self.encoder.predict(inputs)
 		return yhat
 
@@ -280,7 +287,7 @@ class VideoFeatures:
 		# this returns layer-specific features:
 		wanted_layer = layers_select[self.vgg_l]
 		# TODO: change include top depending on the architecture
-		vgg_model = VGGFace(model=model_select[self.vgg_v], input_shape=(224, 224, 3), include_top=True)
+		vgg_model = VGGFace(model=model_select[self.vgg_v], input_shape=(224, 224, 3), include_top=False)
 
 		out = vgg_model.get_layer(wanted_layer).output
 		vgg_model_custom_layer = Model(inputs=vgg_model.input, outputs=out)
@@ -332,7 +339,8 @@ class VideoFeatures:
 	
 	def split_videos(self, video_data):
 		files_idx = video_data.index.get_level_values(0)
-		frame_idx = video_data.index.get_level_values(1)
+		frame_idx = np.hstack([np.arange(len(np.where(files_idx == f))) for f in files_idx.unique()])
+		video_data.index = pd.MultiIndex.from_tuples(zip(files_idx, frame_idx))
 		new_idx = []
 		for file in files_idx.unique():
 			frames = frame_idx[np.where(files_idx == file)]

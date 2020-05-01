@@ -10,6 +10,7 @@ dependencies:
   - keras
   - numpy
   - scikit-learn
+  - dask
   - matplotlib
   - librosa
   - pydub
