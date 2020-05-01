@@ -103,7 +103,7 @@ class Data:
 			if scaler_axis[i] == '':
 				scaler_axis[i] = None
 			else:
-				scaler_axis[i] = int(i)
+				scaler_axis[i] = int(scaler_axis[i])
 				
 		# Scale data:
 		if scaler == 'minmax' or scaler == 'standard':

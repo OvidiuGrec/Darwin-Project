@@ -7,11 +7,11 @@
   },
 
   "FDHH": {
-    "pattern_len": [3, 7],
-    "thresh": [0.001, 0.1]
+    "pattern_len": 3,
+    "thresh": 0.01
   },
 
   "PCA": {
-    "video_components": 0.995
+    "video_components": 0.96
   }
 }
