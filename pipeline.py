@@ -10,6 +10,7 @@ from functools import partial
 
 from data import Data
 from model import DepressionModel
+from validation import avec_metrics
 from bayes_opt import BayesianOptimization
 
 
@@ -58,9 +59,9 @@ class Pipeline:
             mlflow.set_tags({'seed': seed, 'mode': self.options.mode})
 
         if self.feature_type == 'combined' and self.fusion == 'late':
-            mae = self.train_bimodal()
+            y_true, y_pred, mae = self.train_bimodal()
         else:
-            _, _, _, _, mae = self.train_model(self.feature_type)
+            _, y_pred, _, y_true, mae = self.train_model(self.feature_type)
             
         if self.options.mlflow:
             mlflow.end_run()
@@ -75,12 +76,12 @@ class Pipeline:
         pred_train = pred_weights[0] * v_pred_train + pred_weights[1] * a_pred_train
         pred_test = pred_weights[0] * v_pred_test + pred_weights[1] * a_pred_test
 
-        train_mae, train_rmse = DepressionModel.score(y_train, pred_train)
-        test_mae, test_rmse = DepressionModel.score(y_test, pred_test)
+        train_mae, train_rmse = avec_metrics(y_train, pred_train)
+        test_mae, test_rmse = avec_metrics(y_test, pred_test)
 
         self.log_metrics('combined', train_mae, train_rmse, test_mae, test_rmse)
         
-        return test_mae
+        return y_test, pred_test, test_mae
 
     def train_model(self, feature_type):
         X_train, y_train, X_test, y_test = self.data.load_data(feature_type)
@@ -89,9 +90,11 @@ class Pipeline:
         model = DepressionModel(feature_type, self.config[feature_type], input_shape, pars=self.pars)
 
         model.train(X_train, y_train)
-
-        train_mae, train_rmse, pred_train = model.validate_model(X_train, y_train)
-        test_mae, test_rmse, pred_test = model.validate_model(X_test, y_test)
+        pred_train = model.predict(X_train)
+        pred_test = model.predict(X_test)
+        
+        train_mae, train_rmse = avec_metrics(y_train, pred_train)
+        test_mae, test_rmse = avec_metrics(y_test, pred_test)
 
         self.log_metrics(feature_type, train_mae, train_rmse, test_mae, test_rmse)
 
@@ -112,7 +115,7 @@ class Pipeline:
     
         opt_part = partial(self.run_experiment, use_mlflow=False)
         optimizer = BayesianOptimization(f=opt_part, pbounds=pbounds, verbose=2, random_state=1)
-        optimizer.maximize(init_points=20, n_iter=200)
+        optimizer.maximize(init_points=5, n_iter=30)
         for i, res in enumerate(optimizer.res):
             print("Iteration {}: \n\t{}".format(i, res))
         print(optimizer.max)
@@ -175,7 +178,7 @@ class Pipeline:
         parser.add_argument("-o", "--opt", dest="opt", action="store_true", required=False,
                             help="Specify if you want to run hyperparameter optimization")
         parser.add_argument("-s", "--save", dest="mlflow", action="store_true", required=False,
-                            default=True,
+                            default=False,
                             help="Specify where as to save the run to mlflow experiments")
         parser.add_argument("-v", "--verbose", dest="verbose", action="store_true", required=False,
                             help="Specify if you want to print out all of the outputs and graphs")
@@ -261,4 +264,4 @@ class Pipeline:
 if __name__ == '__main__':
     pipe = Pipeline()
     self = pipe
-    pipe.run_experiment()
+    # pipe.run_experiment()

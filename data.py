@@ -2,11 +2,6 @@ import os
 import mlflow
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-
-from scipy.stats import boxcox
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.decomposition import PCA
 
 from video_features import VideoFeatures
 from audio_features import AudioFeatures
@@ -68,10 +63,11 @@ class Data:
 			y_train = y_train.iloc[::self.seq_length, :].copy()
 			y_test = y_test.iloc[::self.seq_length, :].copy()
 		
-		idx_tr, idx_te = np.arange(X_train.shape[0]), np.arange(X_test.shape[0])
-		np.random.shuffle(idx_tr), np.random.shuffle(idx_te)
+		# Shuffle the training data:
+		idx_tr = np.arange(X_train.shape[0])
+		np.random.shuffle(idx_tr)
 		
-		return X_train[idx_tr], y_train.iloc[idx_tr], X_test[idx_te], y_test.iloc[idx_te]
+		return X_train[idx_tr], y_train.iloc[idx_tr], X_test, y_test
 
 	def preprocess(self, feature_type, X_train, X_test):
 		"""
@@ -115,8 +111,7 @@ class Data:
 		# Perform PCA:
 		try:
 			pca_pars = self.pars['PCA'][f'{feature_type}_components']
-			X_train, X_test, n_features = pca_transform(X_train, X_test, pca_components=pca_pars)
-			mlflow.log_param(f'{feature_type}_n_features', n_features)
+			X_train, X_test, pca = pca_transform(X_train, X_test, pca_components=pca_pars)
 		except KeyError:
 			if self.options.verbose:
 				print('No pca performed during preprocessing. If this behaviour is unintentional check parameters.')
@@ -150,7 +145,7 @@ class Data:
 		return labels.transpose()
 
 	def load_video_features(self):
-		video_data = list(self.video.get_video_data())
+		video_data = self.video.get_video_data()
 		return self.prep_features(video_data)
 
 	def load_audio_features(self):

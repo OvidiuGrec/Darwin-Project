@@ -1,19 +1,16 @@
 {
   "VanilaLSTM": {
     "model": {
-      "ker_reg1": [0, 0.1],
-      "ker_reg2": [0, 0.1],
-      "rec_reg1": [0, 0.1],
-      "rec_reg2": [0, 0.1],
-      "d1": [0, 0.5],
-      "d2": [0, 0.5],
+      "ker_reg1": 0.05,
+      "ker_reg2": 0.05,
+      "rec_reg1": 0.05,
+      "rec_reg2": 0.05,
       "l1": [10, 200],
-      "l2": [10, 1000],
       "lr": [0.0001, 0.01]
     },
     "train": {
       "epochs": [10, 100],
-      "batch_size": [4, 512],
+      "batch_size": 32,
       "verbose": 0,
       "validation_split": 0
     },
@@ -23,7 +20,7 @@
   },
 
   "PCA": {
-    "per_frame_components": 100,
+    "per_frame_components": 50,
     "per_frame_use_saved": true
   }
 }

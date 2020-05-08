@@ -6,16 +6,11 @@ import numpy as np
 import pandas as pd
 from sys import platform
 
-import dask.dataframe as dd
-from dask_ml.preprocessing import MinMaxScaler
-
 from mtcnn import MTCNN
-from keras import Model
-from keras_vggface.vggface import VGGFace
-from keras_vggface.utils import preprocess_input
+from vgg_face import MyVGGFace
 
 from helper import save_to_file, load_from_file
-from preprocess import pca_transform
+from preprocess import pca_transform, scale
 
 
 class VideoFeatures:
@@ -58,25 +53,23 @@ class VideoFeatures:
 			if self.fdhh:
 				if self.options.verbose:
 					print('Performing FDHH over train and test set... \n')
-				meta = {i: 'f8' for i in range(X_train.shape[1]*self.pars['FDHH']['pattern_len'])}
-				X_train = X_train.groupby('file').apply(self.FDHH, meta=meta).compute()
-				X_test = X_test.groupby('file').apply(self.FDHH, meta=meta).compute()
+				X_train, X_test = scale(X_train, X_test, axis=0, use_pandas=True)
+				X_train = X_train.groupby(level=0).apply(self.FDHH)
+				X_test = X_test.groupby(level=0).apply(self.FDHH)
 			else:
-				if self.options.verbose:
-					print('Reducing dimensionality using PCA... \n')
-				n_components = self.pars['PCA']['per_frame_components']
-				X_train, X_test = X_train.compute(), X_test.compute()
-				X_train, X_test, _ = pca_transform(X_train, X_test, n_components, use_pandas=True)
+				X_train, X_test = scale(X_train, X_test, scale_type='standard', axis=0, use_pandas=True)
+				X_train, X_test = self.video_pca(X_train, X_test)
+				X_train, X_test = scale(X_train, X_test, scale_type='standard', axis=0, use_pandas=True)
 				
 		if self.options.save_features:
 			save_to_file(feature_path[0], feature_path[1], (X_train, X_test))
-			self.options.save_features = False
+			# self.options.save_features = False
 		
 		if not self.fdhh:
 			X_train = self.split_videos(X_train)
 			X_test = self.split_videos(X_test)
 			
-		return X_train, X_test
+		return [X_train, X_test]
 	
 	def get_train_test(self):
 		
@@ -101,27 +94,18 @@ class VideoFeatures:
 			for file in files:
 				size, n_features = load_from_file(f'{data_path}/{file}').shape
 				idx += list(np.repeat(file[:-4], size))
-			all_videos = pd.DataFrame(data=np.empty((len(idx), n_features)), index=idx,
-			                          columns=[f'f{i}' for i in np.arange(n_features)])
-			all_videos.index = all_videos.index.rename('file')
+			all_videos = pd.DataFrame(data=np.empty((len(idx), n_features)), index=idx)
 			# Extract videos and put into DataFrame:
 			for file in files:
 				all_videos.loc[file[:-4]] = load_from_file(f'{data_path}/{file}')
-			all_videos = dd.from_pandas(all_videos, npartitions=8)
 			all_data.append(all_videos)
 			del all_videos
 		
 		if self.options.mode == 'test':
-			X_train, X_test = dd.concat([all_data[0], all_data[1]]), all_data[2]
+			X_train, X_test = pd.concat([all_data[0], all_data[1]]), all_data[2]
 		else:
 			X_train, X_test = tuple(all_data)
 		del all_data
-		
-		if self.options.verbose:
-			print('Scaling video features...')
-		scaler = MinMaxScaler().fit(X_train)
-		X_train = scaler.transform(X_train)
-		X_test = scaler.transform(X_test)
 		
 		return X_train, X_test
 	
@@ -132,7 +116,7 @@ class VideoFeatures:
 		"""
 		
 		self.face_detector = MTCNN()
-		self.encoder = self.get_vggface()
+		encoder = MyVGGFace(self.vgg_l, self.vgg_v)
 		
 		folder = self.folders['raw_video_folder']
 		
@@ -151,7 +135,7 @@ class VideoFeatures:
 					coord_path = (f'{self.folders["facial_data"]}', f'{file[:14]}.pic')
 					if file.endswith('.mp4') and not os.path.exists(f'{encode_path[0]}/{encode_path[1]}'):
 						faces, coords = self.video_faces(f'{dirpath}/{file}', f'{coord_path[0]}/{coord_path[1]}')
-						encoding = self.vggface_encoding(faces)
+						encoding = encoder.vggface_encoding(faces)
 						save_to_file(coord_path[0], coord_path[1], coords)
 						save_to_file(encode_path[0], encode_path[1], encoding.reshape(encoding.shape[0], -1))
 						del faces, encoding
@@ -176,48 +160,54 @@ class VideoFeatures:
 		 """
 
 		cap = cv2.VideoCapture(video_path)
-
+		
 		# Check if camera opened successfully
 		if not cap.isOpened():
 			print("Error opening video stream or file")
 			return None
 		
-		n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+		video_fps = cap.get(cv2.CAP_PROP_FPS)
+		read_fps = 30
+		div = video_fps / read_fps
+		
+		video_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+		
 		coords_present = os.path.exists(coord_path)
 			
 		if coords_present:
 			all_coords = load_from_file(coord_path)
 		else:
-			all_coords = np.empty(shape=(n_frames, 4), dtype=np.int64)
+			all_coords = np.empty(shape=(video_frames, 4), dtype=np.int64)
 
-		faces = np.empty(shape=(n_frames, self.input_size[0], self.input_size[1], self.input_size[2]))
-		faces[:] = np.nan
+		faces = []
 		
-		n_nan = 0
-		i = -1
+		i = 0
 		while cap.isOpened():
 			ret, frame = cap.read()
 			if ret:
 				i += 1
-				frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-				if not coords_present:
-					all_coords[i] = self.get_face_coords(frame)
-				c = all_coords[i]
-				if (c == -1).all():
-					n_nan += 1
-					continue
-				else:
-					face = frame[c[0]:c[1], c[2]:c[3]]
-				faces[i] = cv2.resize(face, (self.input_size[0], self.input_size[1])).astype('float64')
+				if not i % div:
+					frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+					if not coords_present:
+						all_coords[i] = self.get_face_coords(frame)
+					c = all_coords[i]
+					if (c == -1).all():
+						continue
+					else:
+						face = frame[c[0]:c[1], c[2]:c[3]]
+					face = cv2.resize(face, (self.input_size[0], self.input_size[1])).astype('float32')
+					faces.append(face)
 			else:
 				break
 		cap.release()
 		
-		if n_nan > 0:
+		faces = np.array(faces)
+		
+		"""if n_nan > 0:
 			faces = self.fill_nan(faces)
 			if self.options.verbose:
 				print(f'Total number of NaN frames before interpolation in {video_path} is {n_nan}')
-				print(f'Reduced to {np.count_nonzero(np.isnan(faces))/(224*224*3)}')
+				print(f'Reduced to {np.count_nonzero(np.isnan(faces))/(224*224*3)}')"""
 			
 		return faces, all_coords
 	
@@ -245,59 +235,6 @@ class VideoFeatures:
 		except:
 			x1, x2, y1, y2 = -1, -1, -1, -1
 		return y1, y2, x1, x2
-	
-	def vggface_encoding(self, faces):
-		"""
-			Encodes an image of a face into a lower dimensional representation
-			Parameters
-			----------
-			faces : ndarray (n * 224 * 224 * 3)
-				An array of face images to be encoded
-				
-			encoder : object
-				vgg_model for feature extraction
-				
-			Returns
-			-------
-			encoding : ndarray (n * X)
-				Feature-vector of a face representations
-		"""
-
-		inputs = preprocess_input(faces, version=2)  # TODO: 1 for VGG and 2 for others
-		yhat = self.encoder.predict(inputs)
-		return yhat
-
-	def get_vggface(self):
-		"""
-			Initializes a VGGFace convolutional neural net based on parameters provided in config file.
-			See: https://github.com/rcmalli/keras-vggface/blob/master/keras_vggface/models.py
-			Returns
-			-------
-			vgg_model_custom_layer : keras.model
-				A keras CNN model with last layer representing features to be extracted.
-		"""
-		layers_select = {
-			'32': 'fc6',
-			'34': 'fc7',
-			'35': 'fc7/relu',
-			'AVGPOOL': 'avg_pool'  # resnet and senet
-		}
-
-		model_select = {
-			'VGG': 'vgg16',
-			'RES': 'resnet50',
-			'SE': 'senet50'
-		}
-
-		# this returns layer-specific features:
-		wanted_layer = layers_select[self.vgg_l]
-		# TODO: change include top depending on the architecture
-		vgg_model = VGGFace(model=model_select[self.vgg_v], input_shape=(224, 224, 3), include_top=False)
-
-		out = vgg_model.get_layer(wanted_layer).output
-		vgg_model_custom_layer = Model(inputs=vgg_model.input, outputs=out)
-
-		return vgg_model_custom_layer
 
 	def FDHH(self, video):
 		"""
@@ -341,6 +278,25 @@ class VideoFeatures:
 					count = 0
 		
 		return pd.Series(fdhh.flatten())
+	
+	def video_pca(self, X_train, X_test):
+		if self.options.verbose:
+			print('Reducing dimensionality of each frame using PCA... \n')
+		use_saved = self.pars['PCA']['per_frame_use_saved']
+		n_components = self.pars['PCA']['per_frame_components']
+		pca_path = (self.folders['models_folder'], [f'{self.vgg_v}_pca.pic'])
+		
+		if use_saved and os.path.exists(f'{pca_path[0]}/{pca_path[1]}'):
+			pca = load_from_file(f'{pca_path[0]}/{pca_path[1]}')
+		else:
+			pca = None
+			
+		X_train, X_test, pca = pca_transform(X_train, X_test, n_components, pca=pca, use_pandas=True)
+		
+		if self.options.verbose:
+			print(f'Explained variance = {np.sum(pca.explained_variance_ratio_):.2f}')
+		
+		return X_train, X_test
 	
 	def split_videos(self, video_data):
 		files_idx = video_data.index.get_level_values(0)

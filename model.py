@@ -35,6 +35,8 @@ class DepressionModel:
 		for model_n in self.model_names:
 			models.append(model_switcher[model_n])
 		
+		del model_switcher
+		
 		return models
 	
 	def train(self, X, y):
@@ -46,33 +48,13 @@ class DepressionModel:
 	def predict(self, X):
 		n_models = len(self.models)
 		model_w = self.model_weights
+		final_pred = 0
 		for i in range(n_models):
 			model = self.models[i]
 			w = model_w[i]
 			pred = w * model.predict(X)
-			if i == 0:
-				final_pred = pred
-			else:
-				final_pred += pred
-		
+			final_pred += pred
 		return final_pred
-	
-	def validate_model(self, X, y):
-		pred = pd.DataFrame(data=self.predict(X), index=y.index)
-		pred = pred.groupby(level=0).mean()
-		y = y.astype('float').groupby(level=0).mean()
-		mae, rmse = self.score(y.values, pred.values)
-		
-		return mae, rmse, pred
-
-	@staticmethod
-	# TODO: migrate to a separate script
-	def score(y, predictions):
-		mae = mean_absolute_error(y, predictions)
-		mse = mean_squared_error(y, predictions)
-		rmse = np.sqrt(mse)
-
-		return mae, rmse
 		
 	def PLS(self):  # Partial Least Squares
 		try:
@@ -110,9 +92,8 @@ class DepressionModel:
 			model = Sequential()
 			model.add(LSTM(pars['l1'], input_shape=(self.in_shape[1], self.in_shape[2]), activation='relu',
 			               recurrent_regularizer=rec_reg, kernel_regularizer=ker_reg))
-			model.add(Dropout(pars['d1']))
-			model.add(Dense(pars['l2'], activation='relu'))
-			model.add(Dropout(pars['d2']))
+			# model.add(Dense(pars['l2'], activation='relu'))
+			# model.add(Dropout(pars['d1']))
 			model.add(Dense(1, activation='linear'))
 			
 			model.compile(loss='mean_squared_error', optimizer=Adam(lr=pars['lr']))
