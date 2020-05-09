@@ -6,6 +6,31 @@ import os
 from pathlib import Path
 
 
+def to_classes(y, binary=False):
+	for i in range(len(y)):
+		bdi = y[i]
+		
+		if binary:
+			if bdi < 20:
+				y[i] = 0
+			else:
+				y[i] = 1
+		else:
+			if bdi <= 10:
+				y[i] = 0  # normal
+			elif 10 < bdi <= 16:
+				y[i] = 1  # mild mood
+			elif 16 < bdi <= 20:
+				y[i] = 2  # (borderline) clinical depression
+			elif 20 < bdi <= 30:
+				y[i] = 3  # moderate depression
+			elif 30 < bdi <= 40:
+				y[i] = 4  # sever depression
+			elif bdi > 40:
+				y[i] = 5  # extreme
+	return y
+
+
 def save_to_file(folder, file_name, data):
 	if not os.path.exists(folder):
 		os.makedirs(folder)

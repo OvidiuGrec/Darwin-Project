@@ -92,12 +92,13 @@ class DepressionModel:
 			model = Sequential()
 			model.add(LSTM(pars['l1'], input_shape=(self.in_shape[1], self.in_shape[2]), activation='relu',
 			               recurrent_regularizer=rec_reg, kernel_regularizer=ker_reg))
-			# model.add(Dense(pars['l2'], activation='relu'))
-			# model.add(Dropout(pars['d1']))
+			model.add(Dropout(pars['d1']))
+			model.add(Dense(pars['l2'], activation='relu'))
+			model.add(Dropout(pars['d2']))
 			model.add(Dense(1, activation='linear'))
 			
 			model.compile(loss='mean_squared_error', optimizer=Adam(lr=pars['lr']))
-		# self.pars['FNN']['train']['callbacks'] = [EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=100)]
+			self.pars['VanilaLSTM']['train']['callbacks'] = [EarlyStopping(monitor='val_loss', min_delta=0.001, patience=10)]
 		except KeyError:
 			model = None
 		return model
