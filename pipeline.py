@@ -252,6 +252,7 @@ class Pipeline:
         folders['audio_folder'] = parser.get("folders", "audio_folder")
         folders['labels_folder'] = parser.get("folders", "labels_folder")
         folders['models_folder'] = parser.get("folders", "models_folder")
+        folders['raw_audio_toolkit_folder'] = parser.get("folders", "raw_audio_toolkit_folder")
 
         return config
     

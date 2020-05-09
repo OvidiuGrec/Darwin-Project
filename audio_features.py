@@ -6,6 +6,7 @@ import pandas as pd
 import math
 import progressbar
 import xcorr_audio_features as xcorr
+import xcorr_toolkit_features as xcorr_toolkit
 
 from pathlib import Path
 from pydub import AudioSegment
@@ -19,10 +20,16 @@ class AudioFeatures:
         folders = config['folders']
         self.raw_audio_dir = Path(folders['raw_audio_folder']) if 'raw_audio_folder' in folders else None
         self.seg_audio_dir = Path(folders['seg_audio_folder']) if 'seg_audio_folder' in folders else None
-        self.features_dir = Path(folders['audio_folder'])
+        self.raw_audio_toolkit_folder = Path(
+            folders['raw_audio_toolkit_folder']) if 'raw_audio_toolkit_folder' in folders else None
 
+        self.features_dir = Path(folders['audio_folder'])
         self.feature_type = config['general']['audio_features'].lower()
+<<<<<<< HEAD
         if self.feature_type not in self.allowed_features and not self.feature_type.startswith(self.allowed_prefixes):
+=======
+        if self.feature_type not in ['avec', 'xcorr', 'xcorr_toolkit'] and not self.feature_type.startswith('egemaps'):
+>>>>>>> fixed toolkit features
             raise ValueError("feature_type should be either 'AVEC', 'XCORR', 'EGEMAPS' or 'EGEMAPS_X'")
         self.__setup_opensmile()
 
@@ -85,8 +92,10 @@ class AudioFeatures:
         print('Building audio feature sets...')
         if self.feature_type == 'avec' or self.feature_type.startswith('egemaps'):
             feature_sets = self.__build_feature_sets()
-        else:
+        elif self.feature_type == 'xcorr':
             feature_sets = xcorr.extract_features(self.raw_audio_dir)
+        else:
+            feature_sets = xcorr_toolkit.build_feature_sets(self.raw_audio_toolkit_folder)
         feature_sets = self.__mean_feature_sets(feature_sets)
         self.__save_feature_sets(feature_sets)
 
@@ -147,6 +156,7 @@ class AudioFeatures:
 
     def __load_features(self, partition):
         file_dir = self.features_dir / self.feature_type
+
 
         f_free = load_from_file(file_dir / f'{partition}_freeform.pkl')
         f_north = load_from_file(file_dir / f'{partition}_northwind.pkl')

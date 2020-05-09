@@ -56,60 +56,6 @@ def extract_mfcc_features(wav_dir='C:\\AVEC2014\\audio\\wav', feature_dir='C:\\F
     open_smile_exe = f"{project_directory}\\data\\audio\\openSMILE\\msvcbuild\\SMILExtract_Release"
     extract_features(wav_dir, feature_dir, data_sets, config_path, 'mfcc', tasks, open_smile_exe)
 
-def build_feature_sets(csv_dir='C:\\Features\\praat_opensmile_features', project_dir='C:\\Darwin-Project',
-                       target_dir='data\\audio\\features\\xcorr_toolkit', tasks=['Northwind', 'Freeform']):
-    data = {}
-
-    # build an organized dict with all data
-    for task in tasks:
-        glob_path = f"{csv_dir}\\**\\{task}\\*_cpp.csv"
-        for file_path in glob.glob(glob_path, recursive=True):
-            file_path = file_path.split('_cpp.csv')[0]
-            [(partition, task)] = re.findall(r"(Development|Testing|Training)\\(Freeform|Northwind)", file_path)
-            file_name = os.path.split(file_path)[1]
-
-            if not partition in data: data[partition] = {}
-            if not task in data[partition]: data[partition][task] = {}
-            if not file_name in data[partition][task]:
-                data[partition][task][file_name] = {}
-
-
-            cpp, rec_len = get_peak_prominences(file_path + '_cpp.csv')
-            formants = get_formants(file_path + '_ff.csv', rec_len)
-            hnr = get_hnr(file_path + '_hnr.csv')
-            delta_mfcc = get_delta_mfcc(file_path + '_mfcc.csv', rec_len)
-
-            feature_number = max(cpp.shape[0], hnr.shape[0], formants.shape[0], delta_mfcc.shape[0])
-            for i in range(feature_number - cpp.shape[0]):
-                cpp = np.append(cpp, 0)
-            for i in range(feature_number - hnr.shape[0]):
-                hnr = np.append(hnr, 0)
-            for i in range(feature_number - formants.shape[0]):
-                formants = np.vstack((formants, np.array([0, 0, 0])))
-            for i in range(feature_number - delta_mfcc.shape[0]):
-                delta_mfcc = np.vstack((delta_mfcc, [0 for i in range(16)]))
-
-            mfcc_xcorr = get_xcorr_features(delta_mfcc)
-            data[partition][task][file_name]['mfcc_xcorr'] = mfcc_xcorr
-
-            form_cpp = np.concatenate((formants, np.array([cpp]).T), axis=1)
-            form_cpp_xcorr = get_xcorr_features(form_cpp)
-            data[partition][task][file_name]['form_cpp_xcorr'] = form_cpp_xcorr
-
-            cpp_hnr = np.array(list(zip(cpp, hnr)))
-            cpp_hnr_xcorr = get_xcorr_features(cpp_hnr, max_eig=20)
-            data[partition][task][file_name]['cpp_hnr_xcorr'] = cpp_hnr_xcorr
-
-        # separate final features by partition and save in separate file
-        for p in data:
-            target_dir = os.path.join(project_dir, target_dir)
-            if not os.path.exists(target_dir):
-                os.makedirs(target_dir)
-            f = open(os.path.join(target_dir, f"{p.lower()}_{task.lower()}.pkl"), "wb")
-            pickle.dump(data[p], f)
-            f.close()
-
-
 def get_delta_mfcc(file, rec_len):
     number_of_mfcc = 16
     delta_mfcc_order = 2
@@ -213,81 +159,103 @@ def get_xcorr_features(features, max_eig=None):
         f_cov = np.append(f_cov, [cov_power, cov_entropy])
 
     return np.append(f_xcorr, f_cov)
-#
-# def extract_features(audio_dir):
-#     data = {}
-#     columns = []
-#
-#     # build an organized dict with all data
-#     print('Extracting xcorr features from audio...')
-#     paths = list(audio_dir.glob('**/*.wav'))
-#     for i in progressbar.progressbar(range(len(paths))):
-#         path = paths[i]
-#         regex = r"(Development|Testing|Training)/(Freeform|Northwind)"
-#         [(partition, task)] = re.findall(regex, '/'.join(path.parts))
-#
-#         y, sr = librosa.load(path)
-#
-#         delta_mfcc = get_delta_mfcc(y, sr).T
-#         formants = get_formants(y, sr)
-#         cpp = get_peak_prominences(y, sr)
-#         hnr = get_hnr(y, sr)
-#
-#         form_cpp = np.concatenate((formants, np.array([cpp]).T), axis=1)
-#         cpp_hnr = np.array(list(zip(cpp, hnr)))
-#
-#         mfcc_xcorr = get_xcorr_features(delta_mfcc)
-#         form_cpp_xcorr = get_xcorr_features(form_cpp)
-#         cpp_hnr_xcorr = get_xcorr_features(cpp_hnr, max_eig=20)
-#
-#         if not columns:
-#             columns = [f'mfcc_xcorr_{i}' for i in range(mfcc_xcorr.shape[0])]
-#             columns += [f'form_cpp_xcorr_{i}' for i in range(form_cpp_xcorr.shape[0])]
-#             columns += [f'cpp_hnr_xcorr_{i}' for i in range(cpp_hnr_xcorr.shape[0])]
-#
-#         if not partition in data: data[partition] = {}
-#         if not task in data[partition]: data[partition][task] = {}
-#         if not path.name in data[partition][task]:
-#             data[partition][task][path.name] = pd.DataFrame(columns=columns)
-#
-#         df = data[partition][task][path.name]
-#         df.loc[len(df)] = np.append(mfcc_xcorr, np.append(form_cpp_xcorr, cpp_hnr_xcorr))
-#     return data
-#
-# def get_labels(partition, labels_dir='labels/AVEC2014_Labels'):
-#     labels_glob = os.path.join(labels_dir, f"{partition.capitalize()}_DepressionLabels/*.csv")
-#     labels = {}
-#
-#     for path in glob.glob(labels_glob, recursive=True):
-#         file = open(path, "r")
-#         labels[re.search(r"\d{3}_\d", path).group()] = int(file.read())
-#         file.close()
-#
-#     return np.array([labels[k] for k in sorted(labels)])
-#
-# def get_features(partition):
-#     f_train = pickle.load(open(f"xcorr_audio_features_{partition}.pkl", "rb"))
-#     f_free = f_train["Freeform"]
-#     f_north = f_train["Northwind"]
-#     f_all = {re.search(r"\d{3}_\d+", k).group():f_free[k] for k in f_free}
-#
-#     if partition == "training":
-#         # fix broken key
-#         f_all["205_1"] = f_all["205_2"]
-#         del f_all["205_2"]
-#
-#     if partition == "development":
-#         # fix broken key
-#         f_all["205_2"] = f_all["205_1"]
-#         del f_all["205_1"]
-#
-#     for k in f_north:
-#         fk = re.search(r"\d{3}_\d+", k).group()
-#         for f in f_north[k]:
-#             f_all[fk][f] = np.mean((f_all[fk][f], f_north[k][f]), axis=0)
-#
-#     return np.array([f_all[k] for k in sorted(f_all)])
 
-# extract_praat_features()
-# extract_mfcc_features()
-build_feature_sets()
+def save_feature_sets(csv_dir='C:\\Features\\praat_opensmile_features', project_dir='C:\\Darwin-Project',
+                       target_dir='data\\audio\\features\\xcorr_toolkit', tasks=['Northwind', 'Freeform']):
+    data = {}
+
+    # build an organized dict with all data
+    for task in tasks:
+        glob_path = f"{csv_dir}\\**\\{task}\\*_cpp.csv"
+        for file_path in glob.glob(glob_path, recursive=True):
+            file_path = file_path.split('_cpp.csv')[0]
+            [(partition, task)] = re.findall(r"(Development|Testing|Training)\\(Freeform|Northwind)", file_path)
+            file_name = os.path.split(file_path)[1]
+
+            if not partition in data: data[partition] = {}
+            if not task in data[partition]: data[partition][task] = {}
+            if not file_name in data[partition][task]:
+                data[partition][task][file_name] = {}
+
+
+            cpp, rec_len = get_peak_prominences(file_path + '_cpp.csv')
+            formants = get_formants(file_path + '_ff.csv', rec_len)
+            hnr = get_hnr(file_path + '_hnr.csv')
+            delta_mfcc = get_delta_mfcc(file_path + '_mfcc.csv', rec_len)
+
+            cpp, hnr, formants, delta_mfcc = equalise_arrays(cpp, hnr, formants, delta_mfcc)
+
+            mfcc_xcorr = get_xcorr_features(delta_mfcc)
+            data[partition][task][file_name]['mfcc_xcorr'] = mfcc_xcorr
+
+            form_cpp = np.concatenate((formants, np.array([cpp]).T), axis=1)
+            form_cpp_xcorr = get_xcorr_features(form_cpp)
+            data[partition][task][file_name]['form_cpp_xcorr'] = form_cpp_xcorr
+
+            cpp_hnr = np.array(list(zip(cpp, hnr)))
+            cpp_hnr_xcorr = get_xcorr_features(cpp_hnr, max_eig=20)
+            data[partition][task][file_name]['cpp_hnr_xcorr'] = cpp_hnr_xcorr
+
+        # separate final features by partition and save in separate file
+        for p in data:
+            target_dir = os.path.join(project_dir, target_dir)
+            if not os.path.exists(target_dir):
+                os.makedirs(target_dir)
+            f = open(os.path.join(target_dir, f"{p.lower()}_{task.lower()}.pkl"), "wb")
+            pickle.dump(data[p], f)
+            f.close()
+
+def build_feature_sets(feature_dir):
+    data = {}
+    columns = []
+
+    # build an organized dict with all data
+    print('Extracting xcorr toolkit features from audio...')
+    paths = list(feature_dir.glob('**\\*_cpp.csv'))
+    for i in progressbar.progressbar(range(len(paths))):
+        path = paths[i]
+        path_str = str(path)[0:-8]
+        regex = r"(Development|Testing|Training)\\(Freeform|Northwind)"
+        [(partition, task)] = re.findall(regex, '\\'.join(path.parts))
+
+        cpp, rec_len = get_peak_prominences(path_str + '_cpp.csv')
+        formants = get_formants(path_str + '_ff.csv', rec_len)
+        hnr = get_hnr(path_str + '_hnr.csv')
+        delta_mfcc = get_delta_mfcc(path_str + '_mfcc.csv', rec_len)
+
+        cpp, hnr, formants, delta_mfcc = equalise_arrays(cpp, hnr, formants, delta_mfcc)
+
+        form_cpp = np.concatenate((formants, np.array([cpp]).T), axis=1)
+        cpp_hnr = np.array(list(zip(cpp, hnr)))
+
+        mfcc_xcorr = get_xcorr_features(delta_mfcc)
+        form_cpp_xcorr = get_xcorr_features(form_cpp)
+        cpp_hnr_xcorr = get_xcorr_features(cpp_hnr, max_eig=20)
+
+        if not columns:
+            columns = [f'mfcc_xcorr_{i}' for i in range(mfcc_xcorr.shape[0])]
+            columns += [f'form_cpp_xcorr_{i}' for i in range(form_cpp_xcorr.shape[0])]
+            columns += [f'cpp_hnr_xcorr_{i}' for i in range(cpp_hnr_xcorr.shape[0])]
+
+        if not partition in data: data[partition] = {}
+        if not task in data[partition]: data[partition][task] = {}
+        if not path.name in data[partition][task]:
+            data[partition][task][path.name] = pd.DataFrame(columns=columns)
+
+        df = data[partition][task][path.name]
+        df.loc[len(df)] = np.append(mfcc_xcorr, np.append(form_cpp_xcorr, cpp_hnr_xcorr))
+    return data
+
+def equalise_arrays(cpp, hnr, formants, delta_mfcc):
+
+    feature_number = max(cpp.shape[0], hnr.shape[0], formants.shape[0], delta_mfcc.shape[0])
+    for i in range(feature_number - cpp.shape[0]):
+        cpp = np.append(cpp, 0)
+    for i in range(feature_number - hnr.shape[0]):
+        hnr = np.append(hnr, 0)
+    for i in range(feature_number - formants.shape[0]):
+        formants = np.vstack((formants, np.array([0, 0, 0])))
+    for i in range(feature_number - delta_mfcc.shape[0]):
+        delta_mfcc = np.vstack((delta_mfcc, [0 for i in range(16)]))
+
+    return cpp, hnr, formants, delta_mfcc

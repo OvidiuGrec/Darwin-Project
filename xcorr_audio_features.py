@@ -122,7 +122,6 @@ def build_feature_sets(wav_dir='AVEC2014', target_dir=''):
 def extract_features(audio_dir):
     data = {}
     columns = []
-
     # build an organized dict with all data
     print('Extracting xcorr features from audio...')
     paths = list(audio_dir.glob('**/*.wav'))
@@ -157,6 +156,7 @@ def extract_features(audio_dir):
 
         df = data[partition][task][path.name]
         df.loc[len(df)] = np.append(mfcc_xcorr, np.append(form_cpp_xcorr, cpp_hnr_xcorr))
+
     return data
 
 def get_labels(partition, labels_dir='labels/AVEC2014_Labels'):
