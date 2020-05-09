@@ -45,25 +45,24 @@ class VideoFeatures:
 		else:
 			feature_path = (f'{self.feature_folder}_FD', f'train_dev_{feature_str}.pic')
 			
-		# Return saved features if exists:
+		# Return saved features if exist:
 		if not self.options.save_features and os.path.exists(f'{feature_path[0]}/{feature_path[1]}'):
 			X_train, X_test = load_from_file(f'{feature_path[0]}/{feature_path[1]}')
 		else:
 			X_train, X_test = self.get_train_test()
 			if self.fdhh:
 				if self.options.verbose:
-					print('Performing FDHH over train and test set... \n')
+					print('Performing FDHH over train and test set...')
 				X_train, X_test = scale(X_train, X_test, axis=0, use_pandas=True)
 				X_train = X_train.groupby(level=0).apply(self.FDHH)
 				X_test = X_test.groupby(level=0).apply(self.FDHH)
 			else:
 				X_train, X_test = scale(X_train, X_test, scale_type='standard', axis=0, use_pandas=True)
 				X_train, X_test = self.video_pca(X_train, X_test)
-				X_train, X_test = scale(X_train, X_test, scale_type='standard', axis=0, use_pandas=True)
 				
 		if self.options.save_features:
 			save_to_file(feature_path[0], feature_path[1], (X_train, X_test))
-			# self.options.save_features = False
+			self.options.save_features = False
 		
 		if not self.fdhh:
 			X_train = self.split_videos(X_train)
@@ -74,7 +73,7 @@ class VideoFeatures:
 	def get_train_test(self):
 		
 		if self.options.verbose:
-			print(f'Putting together video data... \n')
+			print(f'Putting together video data...')
 		
 		data_parts = ['Training', 'Development']
 		if self.options.mode == 'test':
@@ -281,7 +280,7 @@ class VideoFeatures:
 	
 	def video_pca(self, X_train, X_test):
 		if self.options.verbose:
-			print('Reducing dimensionality of each frame using PCA... \n')
+			print('Reducing dimensionality of each frame using PCA...')
 		use_saved = self.pars['PCA']['per_frame_use_saved']
 		n_components = self.pars['PCA']['per_frame_components']
 		pca_path = (self.folders['models_folder'], [f'{self.vgg_v}_pca.pic'])

@@ -3,6 +3,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import json
 import tensorflow as tf
 import numpy as np
+import pandas as pd
 import mlflow
 from configparser import ConfigParser
 from argparse import ArgumentParser
@@ -10,7 +11,7 @@ from functools import partial
 
 from data import Data
 from model import DepressionModel
-from validation import avec_metrics
+from validation import avec_metrics, run_validation
 from bayes_opt import BayesianOptimization
 
 
@@ -62,6 +63,9 @@ class Pipeline:
             y_true, y_pred, mae = self.train_bimodal()
         else:
             _, y_pred, _, y_true, mae = self.train_model(self.feature_type)
+        
+        if self.options.verbose:
+            run_validation(y_true, y_pred)
             
         if self.options.mlflow:
             mlflow.end_run()
@@ -86,12 +90,13 @@ class Pipeline:
     def train_model(self, feature_type):
         X_train, y_train, X_test, y_test = self.data.load_data(feature_type)
         input_shape = X_train.shape
-
+        
+        # self.pars['VanilaLSTM']['train']['validation_data'] = (X_test, y_test)
         model = DepressionModel(feature_type, self.config[feature_type], input_shape, pars=self.pars)
-
+        
         model.train(X_train, y_train)
-        pred_train = model.predict(X_train)
-        pred_test = model.predict(X_test)
+        pred_train = pd.DataFrame(data=model.predict(X_train), index=y_train.index)
+        pred_test = pd.DataFrame(data=model.predict(X_test), index=y_test.index)
         
         train_mae, train_rmse = avec_metrics(y_train, pred_train)
         test_mae, test_rmse = avec_metrics(y_test, pred_test)
@@ -115,7 +120,7 @@ class Pipeline:
     
         opt_part = partial(self.run_experiment, use_mlflow=False)
         optimizer = BayesianOptimization(f=opt_part, pbounds=pbounds, verbose=2, random_state=1)
-        optimizer.maximize(init_points=5, n_iter=30)
+        optimizer.maximize(init_points=10, n_iter=90)
         for i, res in enumerate(optimizer.res):
             print("Iteration {}: \n\t{}".format(i, res))
         print(optimizer.max)

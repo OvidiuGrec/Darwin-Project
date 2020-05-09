@@ -142,7 +142,7 @@ class Data:
 				for file in filenames:
 					labels[file[:5]] = pd.read_csv(f'{dirpath}/{file}').columns.values
 
-		return labels.transpose()
+		return labels.transpose().astype('int')
 
 	def load_video_features(self):
 		video_data = self.video.get_video_data()
