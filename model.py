@@ -2,13 +2,15 @@ import numpy as np
 import pandas as pd
 
 from sklearn.cross_decomposition import PLSRegression
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, ElasticNet, LogisticRegression
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.svm import SVR
+from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, LSTM
 from keras.optimizers import Adam
-from keras.callbacks import EarlyStopping
 
 
 class DepressionModel:
@@ -26,6 +28,11 @@ class DepressionModel:
 		model_switcher = {
 			'PLS': self.PLS(),
 			'LR': self.LR(),
+			'LogR': self.LogR(),
+			'DecisionTree': self.DecisionTree(),
+			'SVR': self.SVR(),
+			'ElasticNet': self.ElasticNet(),
+			'GradientBoosting': self.GradientBoosting(),
 			'FNN': self.FNN(),
 			'VanilaLSTM': self.VanilaLSTM()
 		}
@@ -50,9 +57,9 @@ class DepressionModel:
 			w = model_w[i]
 			pred = w * model.predict(X)
 			if i == 0:
-				final_pred = pred
+				final_pred = pred.flatten()
 			else:
-				final_pred += pred
+				final_pred += pred.flatten()
 		
 		return final_pred
 	
@@ -60,7 +67,7 @@ class DepressionModel:
 		pred = pd.DataFrame(data=self.predict(X), index=y.index)
 		pred = pred.groupby(level=0).mean()
 		y = y.astype('float').groupby(level=0).mean()
-		mae, rmse = self.score(y.values, pred.values)
+		mae, rmse = self.score(y.values, np.around(pred.values))
 		
 		return mae, rmse, pred
 
@@ -86,6 +93,41 @@ class DepressionModel:
 		except KeyError:
 			reg = None
 		return reg
+
+	def LogR(self):
+		try:
+			reg = LogisticRegression(**self.pars['LR']['model'])
+		except KeyError:
+			reg = None
+		return reg
+
+	def DecisionTree(self):
+		try:
+			model = DecisionTreeRegressor(**self.pars['DecisionTree']['model'])
+		except KeyError:
+			model = None
+		return model
+
+	def SVR(self):
+		try:
+			model = SVR(**self.pars['SVR']['model'])
+		except KeyError:
+			model = None
+		return model
+
+	def GradientBoosting(self):
+		try:
+			model = GradientBoostingRegressor(**self.pars['GradientBoosting']['model'])
+		except KeyError:
+			model = None
+		return model
+
+	def ElasticNet(self):
+		try:
+			model = ElasticNet(**self.pars['ElasticNet']['model'])
+		except KeyError:
+			model = None
+		return model
 	
 	def FNN(self):  # FeedForward Neural Network
 		try:

@@ -1,7 +1,7 @@
 {
   "PLS": {
     "model": {
-      "n_components": 2
+      "n_components": 3
     },
     "train": {}
   },
@@ -13,11 +13,47 @@
     "train": {}
   },
 
+  "GradientBoosting": {
+    "model": {
+      "n_estimators": 500,
+      "learning_rate": 0.001,
+      "alpha": 0.9,
+      "loss": "huber"
+    },
+    "train": {}
+  },
+
+  "SVR": {
+    "model": {
+      "gamma": "auto",
+      "kernel": "linear",
+      "C": 50,
+      "epsilon": 0.01
+    },
+    "train": {}
+  },
+
+  "DecisionTree": {
+    "model": {
+      "max_features": "auto"
+    },
+    "train": {}
+  },
+
+  "ElasticNet": {
+    "model": {
+      "normalize": true,
+      "alpha": 0.01,
+      "l1_ratio": 1
+    },
+    "train": {}
+  },
+
   "FNN": {
     "model": {
       "lr": 0.005,
-      "l1": 128,
-      "d1": 0.2
+      "l1": 64,
+      "d1": 0.3
     },
     "train": {
       "nb_epoch": 500
@@ -30,8 +66,8 @@
   },
 
   "PCA": {
-    "combined_components": 24,
-    "audio_components": 12,
-    "video_components": 12
+    "combined_components": 0.94,
+    "audio_components": 0.95,
+    "video_components": 0.93
   }
 }

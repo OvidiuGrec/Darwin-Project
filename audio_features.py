@@ -9,22 +9,32 @@ import xcorr_audio_features as xcorr
 
 from pathlib import Path
 from pydub import AudioSegment
+from pydub.effects import split_on_silence, normalize
 from helper import save_to_file, load_from_file
+from functools import reduce
 
 class AudioFeatures:
     
     def __init__(self, config):
         self.allowed_features = ['avec', 'xcorr', 'mfcc']
-        self.allowed_prefixes = tuple(['eegmaps', 'xcorr'])
+        self.allowed_prefixes = tuple(['egemaps', 'xcorr'])
+        self.mfcc_enabled = False
+        self.time_series = False
 
         folders = config['folders']
         self.raw_audio_dir = Path(folders['raw_audio_folder']) if 'raw_audio_folder' in folders else None
         self.seg_audio_dir = Path(folders['seg_audio_folder']) if 'seg_audio_folder' in folders else None
-        self.features_dir = Path(folders['audio_folder'])
-
         self.feature_type = config['general']['audio_features'].lower()
+        self.feature_dir = Path(folders['audio_folder']) / self.feature_type
+
+        if self.feature_type.startswith('series'):
+            self.time_series = True
+            self.feature_type = self.feature_type.replace('series_', '', )
         if self.feature_type not in self.allowed_features and not self.feature_type.startswith(self.allowed_prefixes):
             raise ValueError("feature_type should be either 'AVEC', 'XCORR', 'EGEMAPS' or 'EGEMAPS_X'")
+        if self.feature_type == 'mfcc':
+            self.feature_type = 'avec'
+            self.mfcc_enabled = True
         self.__setup_opensmile()
 
     def segment_audio_files(self, seg_len=3, overlap=1):
@@ -38,9 +48,16 @@ class AudioFeatures:
         paths = list(self.raw_audio_dir.glob('**/*.wav'))
         for k in progressbar.progressbar(range(len(paths))):
             audio = AudioSegment.from_wav(paths[k])
+
+            # normalise audio loudness
+            audio = normalize(audio)
+
+            # remove silence longer than 1 sec
+            audio = reduce(lambda x, y: x + y,
+                           split_on_silence(audio, silence_thresh=-45), AudioSegment.empty())
             duration = audio.duration_seconds
 
-            target_dir = self.seg_audio_dir / paths[k].relative_to(self.raw_audio_dir).stem
+            target_dir = self.seg_audio_dir / paths[k].relative_to(self.raw_audio_dir)
             if not target_dir.exists():
                 target_dir.mkdir(parents=True)
 
@@ -64,23 +81,22 @@ class AudioFeatures:
         # CAUTION: takes a long time to finish
         paths = list(self.__audio_dir.glob("**/*.wav"))
         for i in progressbar.progressbar(range(len(paths))):
-            target_file = self.features_dir / self.feature_type / 'csv'
+            target_file = self.feature_dir / 'csv'
             target_file /= paths[i].relative_to(self.__audio_dir).with_suffix('.csv')
+
+            if not paths[i].is_file():
+                continue
 
             if not target_file.parent.exists():
                 target_file.parent.mkdir(parents=True)
 
             # run shell opensmile command (not tested on Windows)
-            if self.feature_type == 'mfcc':
-                output_sink = '-arffoutput'
-            else:
-                output_sink = '-O'
             if sys.platform.startswith('linux'):
                 subprocess.run(['SMILExtract', '-C', str(self.__config_file),
-                                '-I', str(paths[i]), output_sink, str(target_file), '-l', '1'])
+                                '-I', str(paths[i]), '-O', str(target_file), '-l', '0'])
             elif sys.platform.startswith('win32'):
                 subprocess.run(['SMILExtract_Release.exe', '-C', str(self.__config_file),
-                                '-I', str(paths[i]), output_sink, str(target_file), '-l', '1'])
+                                '-I', str(paths[i]), '-O', str(target_file), '-l', '0'])
 
     def build_feature_sets(self):
         print('Building audio feature sets...')
@@ -95,13 +111,17 @@ class AudioFeatures:
         # build an organized dict with all data
         data = {}
         feature_names = []
-        paths = list((self.features_dir / self.feature_type / 'csv').glob('**/*.csv'))
+        paths = list((self.feature_dir / 'csv').glob('**/*.csv'))
         for i in progressbar.progressbar(range(len(paths))):
             path = paths[i]
             regex = r"(Development|Testing|Training)/(Freeform|Northwind)"
             [(partition, task)] = re.findall(regex, '/'.join(path.parts))
-            if self.feature_type in ['avec', 'mfcc'] or self.feature_type.startswith('egemaps'):
-                file_name = path.parent.name
+
+            if self.feature_type == 'avec' or self.feature_type.startswith('egemaps'):
+                if self.feature_type == 'egemaps':
+                    file_name = path.name
+                else:
+                    file_name = path.parent.name
             else:
                 file_name = path.name
 
@@ -120,26 +140,29 @@ class AudioFeatures:
             for t in data[p]:
                 df = pd.DataFrame(columns=list(data[p][t].values())[0].columns)
                 for d in data[p][t]:
-                    df.loc[d] = data[p][t][d].mean(axis=0)
+                    if self.time_series:
+                        df = df.append(data[p][t][d])
+                    else:
+                        df.loc[d] = data[p][t][d].mean(axis=0)
                 data[p][t] = df
         return data
 
     def __save_feature_sets(self, data):
-        if not self.features_dir.exists():
-            self.features_dir.mkdir(parents=True)
+        if not self.feature_dir.exists():
+            self.feature_dir.mkdir(parents=True)
 
         # separate final features by partition and save in separate file
         for p in data:
             for t in data[p]:
                 file_name = f'{p.lower()}_{t.lower()}.pkl'
-                target_dir = self.features_dir / self.feature_type
+                target_dir = self.feature_dir
                 save_to_file(target_dir, file_name, data[p][t])
 
-    def get_features(self, partition, extraction=False):
+    def get_features(self, partition):
         try:
             return self.__load_features(partition)
         except FileNotFoundError:
-            if self.feature_type in ['avec', 'mfcc'] or self.feature_type.startswith('egemaps'):
+            if self.feature_type == 'avec' or self.feature_type.startswith('egemaps'):
                 self.segment_audio_files()
                 self.extract_opensmile_features()
             self.build_feature_sets()
@@ -147,10 +170,12 @@ class AudioFeatures:
         return self.__load_features(partition)
 
     def __load_features(self, partition):
-        file_dir = self.features_dir / self.feature_type
+        f_free = load_from_file(self.feature_dir / f'{partition}_freeform.pkl')
+        f_north = load_from_file(self.feature_dir / f'{partition}_northwind.pkl')
 
-        f_free = load_from_file(file_dir / f'{partition}_freeform.pkl')
-        f_north = load_from_file(file_dir / f'{partition}_northwind.pkl')
+        if self.mfcc_enabled:
+            f_free = f_free.filter(like='mfcc', axis=1)
+            f_north = f_north.filter(like='mfcc', axis=1)
 
         if self.feature_type == 'xcorr_toolkit':
             f_free = xcorr.parse_data_frame(f_free, 'Freeform')
@@ -204,9 +229,6 @@ class AudioFeatures:
             self.__audio_dir = self.raw_audio_dir
         elif self.feature_type.startswith('egemaps'):
             self.__config_file = Path('tools/openSMILE/config/gemaps/eGeMAPSv01a.conf')
-            self.__audio_dir = self.seg_audio_dir
-        elif self.feature_type.startswith('mfcc'):
-            self.__config_file = Path('tools/openSMILE/config/MFCC12_E_D_A.conf')
             self.__audio_dir = self.seg_audio_dir
 
     # def get_labels(partition, labels_dir='data/labels/AVEC2014_Labels'):

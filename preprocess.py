@@ -61,7 +61,7 @@ def scale(X_train, X_test, scale_type='minmax', axis=None, use_boxcox=False, box
 
 def boxcox_transform(X_train, X_test, axis=None):
 	# Used to add before boxcox transformation to ensure all values are positive
-	sv = 1
+	sv = -np.min([X_train.min(), X_test.min()]) + 1
 	if axis:
 		for i in range(X_train.shape[1]):
 			X_train[:, i], maxlog = boxcox(X_train[:, i] + sv)
