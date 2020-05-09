@@ -1,7 +1,7 @@
 {
   "PLS": {
     "model": {
-      "n_components": 1
+      "n_components": 3
     },
     "train": {}
   },
@@ -67,7 +67,7 @@
 
   "PCA": {
     "combined_components": 0.94,
-    "audio_components": 0.89,
-    "video_components": 0.86
+    "audio_components": 0.95,
+    "video_components": 0.93
   }
 }

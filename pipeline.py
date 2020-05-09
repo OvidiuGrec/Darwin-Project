@@ -264,4 +264,4 @@ class Pipeline:
 if __name__ == '__main__':
     pipe = Pipeline()
     self = pipe
-    # pipe.run_experiment()
+    pipe.run_experiment()

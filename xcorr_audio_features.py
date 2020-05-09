@@ -46,7 +46,7 @@ def get_formants(y, sr):
             seg = lfilter([1], [1, 0.63], seg)
 
             n_order = int(2 + sr / 1000)
-            A = librosa.lpc(seg, n_order)
+            A = librosa.core.lpc(seg, n_order)
 
             rts = np.roots(A)
             rts = [r for r in rts if np.imag(r) >= 0]
@@ -193,7 +193,7 @@ def get_features(partition):
 
     return np.array([f_all[k] for k in sorted(f_all)])
 
-def parse_data_frame(self, data, task):
+def parse_data_frame(data, task):
     data = data[task]
     df = pd.DataFrame([])
 

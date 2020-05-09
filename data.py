@@ -18,10 +18,10 @@ class Data:
 		self.fusion = self.config['combined']['fusion']
 		if self.feature_type in ['video', 'combined']:
 			self.video = VideoFeatures(config, options, pars)
+			if not self.video.fdhh:
+				self.seq_length = pars['VanilaLSTM']['data']['seq_length']
 		if self.feature_type in ['audio', 'combined']:
 			self.audio = AudioFeatures(config)
-		if not self.video.fdhh:
-			self.seq_length = pars['VanilaLSTM']['data']['seq_length']
 
 	def load_data(self, feature_type):
 		"""
@@ -59,7 +59,7 @@ class Data:
 		if X_train.size == 0:
 			raise Exception("Invalid feature type has been provided (Should be from (audio, video, combined)")
 		
-		if not self.video.fdhh:
+		if hasattr(self, 'video') and not self.video.fdhh:
 			y_train = y_train.iloc[::self.seq_length, :].copy()
 			y_test = y_test.iloc[::self.seq_length, :].copy()
 		
