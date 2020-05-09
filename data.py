@@ -20,8 +20,9 @@ class Data:
 			self.video = VideoFeatures(config, options, pars)
 		if self.feature_type in ['audio', 'combined']:
 			self.audio = AudioFeatures(config)
-		if not self.video.fdhh:
-			self.seq_length = pars['VanilaLSTM']['data']['seq_length']
+		if self.feature_type != 'audio':
+			if not self.video.fdhh:
+				self.seq_length = pars['VanilaLSTM']['data']['seq_length']
 
 	def load_data(self, feature_type):
 		"""
@@ -58,10 +59,11 @@ class Data:
 			X_train, X_test = self.preprocess(feature_type, X_train, X_test)
 		if X_train.size == 0:
 			raise Exception("Invalid feature type has been provided (Should be from (audio, video, combined)")
-		
-		if not self.video.fdhh:
-			y_train = y_train.iloc[::self.seq_length, :].copy()
-			y_test = y_test.iloc[::self.seq_length, :].copy()
+
+		if self.feature_type != 'audio':
+			if not self.video.fdhh:
+				y_train = y_train.iloc[::self.seq_length, :].copy()
+				y_test = y_test.iloc[::self.seq_length, :].copy()
 		
 		# Shuffle the training data:
 		idx_tr = np.arange(X_train.shape[0])
@@ -173,8 +175,9 @@ class Data:
 	def prep_features(self, data):
 		for i, part in enumerate(data):
 			part.index = self.filename_to_index(part.index)
-			if self.video.fdhh:
-				data[i] = self.combine_tasks(part)
+			if self.feature_type != 'audio':
+				if self.video.fdhh:
+					data[i] = self.combine_tasks(part)
 		return data
 
 	@staticmethod

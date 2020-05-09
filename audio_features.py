@@ -27,7 +27,8 @@ class AudioFeatures:
         self.feature_type = config['general']['audio_features'].lower()
 
         if self.feature_type not in self.allowed_features and not self.feature_type.startswith(self.allowed_prefixes):
-            raise ValueError("feature_type should be either 'AVEC', 'XCORR', 'EGEMAPS' or 'EGEMAPS_X'")
+            raise ValueError("feature_type should be either 'AVEC', 'XCORR', 'XCORR_TOOLKIT', 'EGEMAPS' or 'EGEMAPS_X'")
+
         self.__setup_opensmile()
 
     def segment_audio_files(self, seg_len=3, overlap=1):
@@ -157,10 +158,6 @@ class AudioFeatures:
 
         f_free = load_from_file(file_dir / f'{partition}_freeform.pkl')
         f_north = load_from_file(file_dir / f'{partition}_northwind.pkl')
-
-        if self.feature_type == 'xcorr_toolkit':
-            f_free = xcorr.parse_data_frame(f_free, 'Freeform')
-            f_north = xcorr.parse_data_frame((f_north), 'Northwind')
 
         f_free.index = [re.search(r"\d{3}_\d+", i).group() for i in f_free.index]
         f_north.index = [re.search(r"\d{3}_\d+", i).group() for i in f_north.index]
