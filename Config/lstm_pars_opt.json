@@ -23,7 +23,7 @@
   },
 
   "PCA": {
-    "per_frame_components": 30,
+    "per_frame_components": 100,
     "per_frame_use_saved": true
   }
 }

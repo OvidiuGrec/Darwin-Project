@@ -50,18 +50,23 @@ class VideoFeatures:
 			X_train, X_test = load_from_file(f'{feature_path[0]}/{feature_path[1]}')
 		else:
 			X_train, X_test = self.get_train_test()
+			'''X_train, X_test = scale(X_train, X_test, scale_type='standard', axis=0, use_boxcox=True, boxcox_axis=0,
+			                        use_pandas=True, verbose=self.options.verbose)'''
+			X_train, X_test = scale(X_train, X_test, scale_type='minmax', axis=0, use_pandas=True,
+			                        verbose=self.options.verbose)
 			if self.fdhh:
 				if self.options.verbose:
 					print('Performing FDHH over train and test set...')
-				X_train, X_test = scale(X_train, X_test, axis=0, use_pandas=True)
 				X_train = X_train.groupby(level=0).apply(self.FDHH)
 				X_test = X_test.groupby(level=0).apply(self.FDHH)
+				if self.options.verbose:
+					print(f'Sparsity in Train fdhh = {np.sum(X_train.values == 0) / X_train.size}')
+					print(f'Sparsity in Test fdhh = {np.sum(X_test.values == 0) / X_test.size}')
 			else:
-				X_train, X_test = scale(X_train, X_test, scale_type='standard', axis=0, use_pandas=True)
 				X_train, X_test = self.video_pca(X_train, X_test)
 				
 		if self.options.save_features:
-			save_to_file(feature_path[0], feature_path[1], (X_train, X_test))
+			# save_to_file(feature_path[0], feature_path[1], (X_train, X_test))
 			self.options.save_features = False
 		
 		if not self.fdhh:
@@ -180,7 +185,7 @@ class VideoFeatures:
 
 		faces = []
 		
-		i = 0
+		i = -1
 		while cap.isOpened():
 			ret, frame = cap.read()
 			if ret:
