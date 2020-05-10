@@ -1,7 +1,7 @@
 {
   "PLS": {
     "model": {
-      "n_components": 1
+      "n_components": 3
     },
     "train": {}
   },
@@ -51,13 +51,12 @@
 
   "FNN": {
     "model": {
-      "lr": 0.008,
-      "l1": 128,
-      "l2": 128,
+      "lr": 0.005,
+      "l1": 64,
       "d1": 0.3
     },
     "train": {
-      "nb_epoch": 1500
+      "nb_epoch": 500
     }
   },
 
@@ -68,7 +67,7 @@
 
   "PCA": {
     "combined_components": 0.94,
-    "audio_components": 0.89,
-    "video_components": 0.86
+    "audio_components": 0.95,
+    "video_components": 0.93
   }
 }

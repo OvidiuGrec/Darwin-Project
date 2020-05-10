@@ -62,7 +62,13 @@ def scale(X_train, X_test, scale_type='minmax', axis=None, use_boxcox=False, box
 
 def boxcox_transform(X_train, X_test, axis=None, verbose=True):
 	# Used to add before boxcox transformation to ensure all values are positive
-	
+    
+	sv = -np.min([X_train.min(), X_test.min()]) + 1
+	if axis == 1:
+		for i in range(X_train.shape[1]):
+			X_train[:, i], maxlog = boxcox(X_train[:, i] + sv)
+			X_test[:, i] = boxcox(X_test[:, i] + sv, maxlog)
+
 	if verbose:
 		print('Performing boxcox transformation')
 		fig, (ax1, ax2) = plt.subplots(1, 2)
@@ -71,7 +77,7 @@ def boxcox_transform(X_train, X_test, axis=None, verbose=True):
 		ax1.hist(X_test.flatten(), label='test')
 		ax1.legend()
 		
-	sv = 1
+	sv = -np.min([X_train.min(), X_test.min()]) + 1
 	if axis == 1:
 		for i in range(X_train.shape[1]):
 			X_train[:, i], maxlog = boxcox(X_train[:, i] + sv)
