@@ -12,7 +12,7 @@ def run_validation(y_true, y_pred, binary=False):
 	
 	y_pred = y_pred.groupby(level=0).mean()
 	y_true = y_true.groupby(level=0).mean()
-	per_patient_plot(y_true, y_pred)
+	per_patient_plot(y_true.copy(), y_pred.copy())
 	y_true = y_true.values.flatten()
 	y_pred = y_pred.values.flatten()
 	error_plot(y_true, y_pred)
@@ -28,6 +28,8 @@ def avec_metrics(y_true, y_pred):
 
 
 def per_patient_plot(y_true, y_pred):
+	y_true.sort_values(by=0, inplace=True)
+	y_pred = y_pred.reindex(y_true.index)
 	x = np.arange(y_true.shape[0])
 	fig, ax = plt.subplots(figsize=(10, 6))
 	ax.set(title="Predicted vs True BDI-II score in Test set",
