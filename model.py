@@ -2,11 +2,14 @@ import numpy as np
 import pandas as pd
 
 from sklearn.cross_decomposition import PLSRegression
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, ElasticNet, LogisticRegression
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.svm import SVR
+from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, LSTM
+from keras.layers import Dense, Dropout, LSTM, PReLU
 from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping
 from keras.regularizers import L1L2
@@ -27,6 +30,11 @@ class DepressionModel:
 		model_switcher = {
 			'PLS': self.PLS(),
 			'LR': self.LR(),
+			'LogR': self.LogR(),
+			'DecisionTree': self.DecisionTree(),
+			'SVR': self.SVR(),
+			'ElasticNet': self.ElasticNet(),
+			'GradientBoosting': self.GradientBoosting(),
 			'FNN': self.FNN(),
 			'VanilaLSTM': self.VanilaLSTM()
 		}
@@ -53,9 +61,13 @@ class DepressionModel:
 			model = self.models[i]
 			w = model_w[i]
 			pred = w * model.predict(X)
-			final_pred += pred
-		return final_pred
+			if i == 0:
+				final_pred = pred.flatten()
+			else:
+				final_pred += pred.flatten()
 		
+		return np.max((final_pred, np.zeros(final_pred.size)), axis=0)
+
 	def PLS(self):  # Partial Least Squares
 		try:
 			pls2 = PLSRegression(**self.pars['PLS']['model'])
@@ -69,16 +81,54 @@ class DepressionModel:
 		except KeyError:
 			reg = None
 		return reg
+
+	def LogR(self):
+		try:
+			reg = LogisticRegression(**self.pars['LogR']['model'])
+		except KeyError:
+			reg = None
+		return reg
+
+	def DecisionTree(self):
+		try:
+			model = DecisionTreeRegressor(**self.pars['DecisionTree']['model'])
+		except KeyError:
+			model = None
+		return model
+
+	def SVR(self):
+		try:
+			model = SVR(**self.pars['SVR']['model'])
+		except KeyError:
+			model = None
+		return model
+
+	def GradientBoosting(self):
+		try:
+			model = GradientBoostingRegressor(**self.pars['GradientBoosting']['model'])
+		except KeyError:
+			model = None
+		return model
+
+	def ElasticNet(self):
+		try:
+			model = ElasticNet(**self.pars['ElasticNet']['model'])
+		except KeyError:
+			model = None
+		return model
 	
 	def FNN(self):  # FeedForward Neural Network
 		try:
 			pars = self.pars['FNN']['model']
 			model = Sequential()
-			model.add(Dense(pars['l1'], input_dim=self.in_shape[1], activation='relu'))
+			model.add(Dense(pars['l1'], input_dim=self.in_shape[1]))
+			model.add(PReLU())
+			model.add(Dense(pars['l2']))
+			model.add(PReLU())
 			model.add(Dropout(pars['d1']))
 			model.add(Dense(1, activation='linear'))
 			
-			model.compile(loss='mean_absolute_error', optimizer=Adam(lr=pars['lr']))
+			model.compile(loss='mae', optimizer=Adam(lr=pars['lr']))
 			# self.pars['FNN']['train']['callbacks'] = [EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=100)]
 		except KeyError:
 			model = None
