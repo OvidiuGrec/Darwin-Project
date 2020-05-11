@@ -58,7 +58,7 @@ def extract_mfcc_features(wav_dir='C:\\AVEC2014\\audio\\wav', feature_dir='C:\\F
 
 def get_delta_mfcc(file, rec_len):
     number_of_mfcc = 16
-    delta_mfcc_order = 2
+    delta_mfcc_delay_parameter = 2
     recording_mfccs = np.ndarray((math.ceil(rec_len * 100), number_of_mfcc + 2), dtype=object)
 
     with open(file) as csv_file:
@@ -73,17 +73,17 @@ def get_delta_mfcc(file, rec_len):
 
             i += 1
 
-    recording_mfccs = recording_mfccs[1:math.ceil(rec_len * 100), delta_mfcc_order:number_of_mfcc + delta_mfcc_order]
+    recording_mfccs = recording_mfccs[1:math.ceil(rec_len * 100), delta_mfcc_delay_parameter:number_of_mfcc + delta_mfcc_delay_parameter]
     recording_mfccs = recording_mfccs.astype(np.float)
     recording_mfccs = recording_mfccs[~np.isnan(recording_mfccs).any(axis=1)]
     number_of_mfcc_segments = recording_mfccs.shape[0]
 
-    if delta_mfcc_order > 0:
+    if delta_mfcc_delay_parameter > 0:
 
         recording_delta_mfccs_raw = np.hstack((
-            np.repeat(np.reshape(recording_mfccs[:, 0], (number_of_mfcc_segments, 1)), delta_mfcc_order, 1),
+            np.repeat(np.reshape(recording_mfccs[:, 0], (number_of_mfcc_segments, 1)), delta_mfcc_delay_parameter, 1),
             recording_mfccs,
-            np.repeat(np.reshape(recording_mfccs[:, -1], (number_of_mfcc_segments, 1)), delta_mfcc_order, 1)
+            np.repeat(np.reshape(recording_mfccs[:, -1], (number_of_mfcc_segments, 1)), delta_mfcc_delay_parameter, 1)
         ))
 
         recording_delta_mfccs = np.zeros((number_of_mfcc_segments, number_of_mfcc), float)
@@ -93,9 +93,9 @@ def get_delta_mfcc(file, rec_len):
 
                 numerator = 0
                 denominator = 0
-                for k in range(delta_mfcc_order):
-                    numerator = numerator + (k + 1) * (recording_delta_mfccs_raw[i, j + k + 1 + delta_mfcc_order] -
-                                                       recording_delta_mfccs_raw[i, j - k - 1 + delta_mfcc_order])
+                for k in range(delta_mfcc_delay_parameter):
+                    numerator = numerator + (k + 1) * (recording_delta_mfccs_raw[i, j + k + 1 + delta_mfcc_delay_parameter] -
+                                                       recording_delta_mfccs_raw[i, j - k - 1 + delta_mfcc_delay_parameter])
                     denominator = denominator + (k + 1) * (k + 1)
 
                 recording_delta_mfccs[i, j] = numerator / (denominator * 2)
