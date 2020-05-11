@@ -1,3 +1,5 @@
+import tensorflow as tf
+
 from keras import Model
 from keras_vggface.vggface import VGGFace
 from keras_vggface.utils import preprocess_input
@@ -66,3 +68,7 @@ class MyVGGFace:
 		vgg_model_custom_layer = Model(inputs=vgg_model.input, outputs=out)
 		
 		return vgg_model_custom_layer
+	
+	def aff_vgg_face(self):
+		model = tf.keras.applications.VGG16(include_top=True, weights=None)
+		model.load_weights('models/4096x2000x2/model.ckpt-0')

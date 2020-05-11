@@ -47,7 +47,7 @@ class Pipeline:
         
         seed = self.config['general']['seed']
         np.random.seed(seed)
-        tf.set_random_seed(seed)
+        tf.random.set_seed(seed)
 
         if kwargs:
             self.adjust_pars(kwargs)
@@ -91,7 +91,7 @@ class Pipeline:
         X_train, y_train, X_test, y_test = self.data.load_data(feature_type)
         input_shape = X_train.shape
         
-        # self.pars['VanilaLSTM']['train']['validation_data'] = (X_test, y_test)
+        self.pars['FNN']['train']['validation_data'] = (X_test, y_test)
         model = DepressionModel(feature_type, self.config[feature_type], input_shape, pars=self.pars)
         
         model.train(X_train, y_train)
