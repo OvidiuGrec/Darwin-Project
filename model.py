@@ -7,11 +7,11 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.svm import SVR
 from sklearn.ensemble import GradientBoostingRegressor, AdaBoostRegressor, RandomForestRegressor, VotingRegressor
 
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, LSTM, PReLU
-from keras.optimizers import Adam
-from keras.callbacks import EarlyStopping
-from keras.regularizers import L1L2
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, LSTM, PReLU
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.regularizers import L1L2
 
 
 class DepressionModel:
@@ -143,16 +143,19 @@ class DepressionModel:
 	def FNN(self):  # FeedForward Neural Network
 		try:
 			pars = self.pars['FNN']['model']
-			model = Sequential()
-			model.add(Dense(pars['l1'], input_dim=self.in_shape[1]))
-			model.add(PReLU())
-			model.add(Dense(pars['l2']))
-			model.add(PReLU())
-			model.add(Dropout(pars['d1']))
-			model.add(Dense(1, activation='linear'))
-			
+			ker_reg = L1L2(l1=pars['ker_reg1'], l2=pars['ker_reg2'])
+			model = Sequential([
+				Dense(pars['l1'], input_dim=self.in_shape[1], kernel_regularizer=ker_reg),
+				PReLU(),
+				Dropout(pars['d1']),
+				Dense(pars['l2'], kernel_regularizer=ker_reg),
+				PReLU(),
+				Dropout(pars['d2']),
+				Dense(1, activation='linear')
+			])
 			model.compile(loss='mae', optimizer=Adam(lr=pars['lr']))
-			# self.pars['FNN']['train']['callbacks'] = [EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=100)]
+			self.pars['FNN']['train']['callbacks'] = [EarlyStopping(monitor='val_loss', min_delta=0.01, patience=10)]
+			
 		except KeyError:
 			model = None
 		return model
@@ -171,7 +174,7 @@ class DepressionModel:
 			model.add(Dense(1, activation='linear'))
 			
 			model.compile(loss='mean_squared_error', optimizer=Adam(lr=pars['lr']))
-			self.pars['VanilaLSTM']['train']['callbacks'] = [EarlyStopping(monitor='val_loss', min_delta=0.001, patience=10)]
+			self.pars['VanilaLSTM']['train']['callbacks'] = [EarlyStopping(monitor='val_loss', min_delta=0.001, patience=100)]
 		except KeyError:
 			model = None
 		return model

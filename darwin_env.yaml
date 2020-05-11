@@ -5,9 +5,8 @@ channels:
 dependencies:
   - python==3.7
   - pip==20.0.2
-  - tensorflow==1.15
+  - tensorflow==2.1
   - pandas
-  - keras
   - numpy
   - scikit-learn
   - matplotlib

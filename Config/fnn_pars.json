@@ -1,0 +1,23 @@
+{
+  "FNN": {
+    "model": {
+      "ker_reg1": [0.001, 0.1],
+      "ker_reg2": [0.01, 0.1],
+      "l1": [50, 200],
+      "l2": [50, 200],
+      "d1": [0, 0.5],
+      "d2": [0, 0.5],
+      "lr": [0.0001, 0.01]
+    },
+    "train": {
+      "epochs": 1000,
+      "batch_size": 1,
+      "verbose": 0,
+      "validation_split": 0
+    }
+  },
+
+  "PCA": {
+    "video_components": 0.93
+  }
+}
