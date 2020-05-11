@@ -19,7 +19,7 @@ class Pipeline:
 
     def __init__(self):
         
-        self.int_pars = ['l1', 'l2', 'batch_size', 'epochs', 'pattern_len', 'seq_length']
+        self.int_pars = ['l1', 'l2', 'batch_size', 'epochs', 'pattern_len', 'seq_length', 'n_estimators']
         self.no_log = ['experiment', 'seed', 'folders', 'config_location', 'feature_type']
 
         self.options = self.parse_options()
@@ -97,7 +97,6 @@ class Pipeline:
         model.train(X_train, y_train)
         pred_train = pd.DataFrame(data=model.predict(X_train), index=y_train.index)
         pred_test = pd.DataFrame(data=model.predict(X_test), index=y_test.index)
-        
         train_mae, train_rmse = avec_metrics(y_train, pred_train)
         test_mae, test_rmse = avec_metrics(y_test, pred_test)
 

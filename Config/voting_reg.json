@@ -1,0 +1,40 @@
+{
+  "VotingReg": {
+    "model": {},
+    "train": {}
+  },
+
+  "SVR": {
+    "model": {
+      "C": 60,
+      "max_iter": 100
+    },
+    "train": {}
+  },
+
+  "LR": {
+    "model": {
+      "normalize": true
+    },
+    "train": {}
+  },
+
+  "ElasticNet": {
+    "model": {
+      "alpha": 0.01,
+      "l1_ratio": 2,
+      "normalize": true,
+      "max_iter": 100
+    },
+    "train": {}
+  },
+
+  "FDHH": {
+    "pattern_len": 5,
+    "thresh": 0.004
+  },
+
+  "PCA": {
+    "video_components": 0.93
+  }
+}

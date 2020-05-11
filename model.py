@@ -2,11 +2,10 @@ import numpy as np
 import pandas as pd
 
 from sklearn.cross_decomposition import PLSRegression
-from sklearn.linear_model import LinearRegression, ElasticNet, LogisticRegression
+from sklearn.linear_model import LinearRegression, ElasticNet, Ridge
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.svm import SVR
-from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.ensemble import GradientBoostingRegressor, AdaBoostRegressor, RandomForestRegressor, VotingRegressor
 
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, LSTM, PReLU
@@ -30,11 +29,14 @@ class DepressionModel:
 		model_switcher = {
 			'PLS': self.PLS(),
 			'LR': self.LR(),
-			'LogR': self.LogR(),
+			'Ridge': self.Ridge(),
 			'DecisionTree': self.DecisionTree(),
 			'SVR': self.SVR(),
 			'ElasticNet': self.ElasticNet(),
 			'GradientBoosting': self.GradientBoosting(),
+			'AdaBoost': self.AdaBoost(),
+		    'RandomForest': self.RandomForest(),
+			'VotingReg': self.VotingReg(),
 			'FNN': self.FNN(),
 			'VanilaLSTM': self.VanilaLSTM()
 		}
@@ -51,7 +53,7 @@ class DepressionModel:
 		for i in range(len(self.models)):
 			model_name = self.model_names[i]
 			model = self.models[i]
-			model.fit(X, y, **self.pars[model_name]['train'])
+			model.fit(X, y.values.flatten(), **self.pars[model_name]['train'])
 	
 	def predict(self, X):
 		n_models = len(self.models)
@@ -82,9 +84,9 @@ class DepressionModel:
 			reg = None
 		return reg
 
-	def LogR(self):
+	def Ridge(self):
 		try:
-			reg = LogisticRegression(**self.pars['LogR']['model'])
+			reg = Ridge(**self.pars['Ridge']['model'])
 		except KeyError:
 			reg = None
 		return reg
@@ -113,6 +115,27 @@ class DepressionModel:
 	def ElasticNet(self):
 		try:
 			model = ElasticNet(**self.pars['ElasticNet']['model'])
+		except KeyError:
+			model = None
+		return model
+	
+	def AdaBoost(self):
+		try:
+			model = AdaBoostRegressor(**self.pars['AdaBoost']['model'])
+		except KeyError:
+			model = None
+		return model
+	
+	def RandomForest(self):
+		try:
+			model = RandomForestRegressor(**self.pars['RandomForest']['model'])
+		except KeyError:
+			model = None
+		return model
+	
+	def VotingReg(self):
+		try:
+			model = VotingRegressor([('svr', self.SVR()), ('lr', self.LR()), ('el', self.ElasticNet())])
 		except KeyError:
 			model = None
 		return model
