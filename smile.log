@@ -1,0 +1,57 @@
+<<<<<<< HEAD
+<<<<<<< HEAD
+[ 30.04.2020 - 05:04:22 ]
+    (MSG) [2] in SMILExtract : openSMILE starting!
+[ 30.04.2020 - 05:04:22 ]
+    (MSG) [2] in SMILExtract : config file is: C:\Darwin-Project\data\audio\openSMILE\config\mfcc\mfcc.conf
+[ 30.04.2020 - 05:04:22 ]
+    (MSG) [2] in cComponentManager : successfully registered 95 component types.
+==> LEVEL 'wave'  +++  Buffersize(frames) = 64001  +++  nReaders = 1
+=======
+[ 23.04.2020 - 13:49:56 ]
+=======
+[ 30.04.2020 - 05:04:22 ]
+>>>>>>> progress3
+    (MSG) [2] in SMILExtract : openSMILE starting!
+[ 30.04.2020 - 05:04:22 ]
+    (MSG) [2] in SMILExtract : config file is: C:\Darwin-Project\data\audio\openSMILE\config\mfcc\mfcc.conf
+[ 30.04.2020 - 05:04:22 ]
+    (MSG) [2] in cComponentManager : successfully registered 95 component types.
+<<<<<<< HEAD
+==> LEVEL 'wave'  +++  Buffersize(frames) = 44101  +++  nReaders = 1
+>>>>>>> progress2
+=======
+==> LEVEL 'wave'  +++  Buffersize(frames) = 64001  +++  nReaders = 1
+>>>>>>> progress3
+==> LEVEL 'frame25'  +++  Buffersize(frames) = 3  +++  nReaders = 1
+==> LEVEL 'winH25'  +++  Buffersize(frames) = 3  +++  nReaders = 1
+==> LEVEL 'fftcH25'  +++  Buffersize(frames) = 3  +++  nReaders = 1
+==> LEVEL 'fftmagH25'  +++  Buffersize(frames) = 3  +++  nReaders = 1
+==> LEVEL 'melspecMfcc'  +++  Buffersize(frames) = 3  +++  nReaders = 1
+==> LEVEL 'mfcc'  +++  Buffersize(frames) = 3  +++  nReaders = 1
+<<<<<<< HEAD
+<<<<<<< HEAD
+[ 30.04.2020 - 05:04:22 ]
+    (MSG) [2] in cComponentManager : successfully finished createInstances
+                                 (8 component instances were finalised, 1 data memories were finalised)
+[ 30.04.2020 - 05:04:22 ]
+    (MSG) [2] in cComponentManager : starting single thread processing loop
+[ 30.04.2020 - 05:04:23 ]
+    (MSG) [2] in cComponentManager : Processing finished! System ran for 3312 ticks.
+=======
+[ 23.04.2020 - 13:49:56 ]
+=======
+[ 30.04.2020 - 05:04:22 ]
+>>>>>>> progress3
+    (MSG) [2] in cComponentManager : successfully finished createInstances
+                                 (8 component instances were finalised, 1 data memories were finalised)
+[ 30.04.2020 - 05:04:22 ]
+    (MSG) [2] in cComponentManager : starting single thread processing loop
+<<<<<<< HEAD
+[ 23.04.2020 - 13:49:56 ]
+    (MSG) [2] in cComponentManager : Processing finished! System ran for 243 ticks.
+>>>>>>> progress2
+=======
+[ 30.04.2020 - 05:04:23 ]
+    (MSG) [2] in cComponentManager : Processing finished! System ran for 3312 ticks.
+>>>>>>> progress3

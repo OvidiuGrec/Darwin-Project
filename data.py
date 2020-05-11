@@ -23,6 +23,7 @@ class Data:
 		if self.feature_type in ['audio', 'combined']:
 			self.audio = AudioFeatures(config)
 
+
 	def load_data(self, feature_type):
 		"""
 			Loads all data depending on parameters provided in the config file.
@@ -58,7 +59,8 @@ class Data:
 			X_train, X_test = self.preprocess(feature_type, X_train, X_test)
 		if X_train.size == 0:
 			raise Exception("Invalid feature type has been provided (Should be from (audio, video, combined)")
-		
+
+		# check on run audio only
 		if hasattr(self, 'video') and not self.video.fdhh:
 			y_train = y_train.iloc[::self.seq_length, :].copy()
 			y_test = y_test.iloc[::self.seq_length, :].copy()
@@ -173,8 +175,9 @@ class Data:
 	def prep_features(self, data):
 		for i, part in enumerate(data):
 			part.index = self.filename_to_index(part.index)
-			if self.video.fdhh:
-				data[i] = self.combine_tasks(part)
+			if self.feature_type != 'audio':
+				if self.video.fdhh:
+					data[i] = self.combine_tasks(part)
 		return data
 
 	@staticmethod

@@ -6,6 +6,7 @@ import pandas as pd
 import math
 import progressbar
 import xcorr_audio_features as xcorr
+import xcorr_toolkit_features as xcorr_toolkit
 
 from pathlib import Path
 from pydub import AudioSegment
@@ -14,9 +15,8 @@ from helper import save_to_file, load_from_file
 from functools import reduce
 
 class AudioFeatures:
-    
     def __init__(self, config):
-        self.allowed_features = ['avec', 'xcorr', 'mfcc']
+        self.allowed_features = ['avec', 'xcorr', 'mfcc', 'xcorr_toolkit']
         self.allowed_prefixes = tuple(['egemaps', 'xcorr'])
         self.mfcc_enabled = False
         self.time_series = False
@@ -24,13 +24,14 @@ class AudioFeatures:
         folders = config['folders']
         self.raw_audio_dir = Path(folders['raw_audio_folder']) if 'raw_audio_folder' in folders else None
         self.seg_audio_dir = Path(folders['seg_audio_folder']) if 'seg_audio_folder' in folders else None
+
         self.feature_type = config['general']['audio_features'].lower()
 
         if self.feature_type.startswith('series'):
             self.time_series = True
             self.feature_type = self.feature_type.replace('series_', '', )
         if self.feature_type not in self.allowed_features and not self.feature_type.startswith(self.allowed_prefixes):
-            raise ValueError("feature_type should be either 'AVEC', 'XCORR', 'EGEMAPS' or 'EGEMAPS_X'")
+            raise ValueError("feature_type should be either 'AVEC', 'XCORR', 'XCORR_TOOLKIT', 'EGEMAPS' or 'EGEMAPS_X'")
         if self.feature_type == 'mfcc':
             self.feature_type = 'avec'
             self.mfcc_enabled = True
@@ -103,8 +104,10 @@ class AudioFeatures:
         print('Building audio feature sets...')
         if self.feature_type == 'avec' or self.feature_type.startswith('egemaps'):
             feature_sets = self.__build_feature_sets()
-        else:
+        elif self.feature_type == 'xcorr':
             feature_sets = xcorr.extract_features(self.raw_audio_dir)
+        else:
+            feature_sets = xcorr_toolkit.build_feature_sets(self.raw_audio_toolkit_folder)
         feature_sets = self.__mean_feature_sets(feature_sets)
         self.__save_feature_sets(feature_sets)
 
@@ -177,10 +180,6 @@ class AudioFeatures:
         if self.mfcc_enabled:
             f_free = f_free.filter(like='mfcc', axis=1)
             f_north = f_north.filter(like='mfcc', axis=1)
-
-        if self.feature_type == 'xcorr_toolkit':
-            f_free = xcorr.parse_data_frame(f_free, 'Freeform')
-            f_north = xcorr.parse_data_frame((f_north), 'Northwind')
 
         f_free.index = [re.search(r"\d{3}_\d+", i).group() for i in f_free.index]
         f_north.index = [re.search(r"\d{3}_\d+", i).group() for i in f_north.index]

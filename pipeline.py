@@ -21,14 +21,14 @@ class Pipeline:
         
         self.int_pars = ['l1', 'l2', 'batch_size', 'epochs', 'pattern_len', 'seq_length']
         self.no_log = ['experiment', 'seed', 'folders', 'config_location', 'feature_type']
-        
+
         self.options = self.parse_options()
         self.config = self.load_config()
         self.pars = self.load_pars()
         self.data = Data(self.config, self.options, self.pars)
         self.fusion = self.config['combined']['fusion']
         self.feature_type = self.config['general']['feature_type']
-        
+
         # Add configs that should not be logged
         if self.fusion == 'late':
             self.no_log += ['combined']
@@ -257,6 +257,7 @@ class Pipeline:
         folders['audio_folder'] = parser.get("folders", "audio_folder")
         folders['labels_folder'] = parser.get("folders", "labels_folder")
         folders['models_folder'] = parser.get("folders", "models_folder")
+        folders['raw_audio_toolkit_folder'] = parser.get("folders", "raw_audio_toolkit_folder")
 
         return config
     
