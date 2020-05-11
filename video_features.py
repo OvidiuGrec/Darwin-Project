@@ -66,7 +66,7 @@ class VideoFeatures:
 				X_train, X_test = self.video_pca(X_train, X_test)
 				
 		if self.options.save_features:
-			# save_to_file(feature_path[0], feature_path[1], (X_train, X_test))
+			save_to_file(feature_path[0], feature_path[1], (X_train, X_test))
 			self.options.save_features = False
 		
 		if not self.fdhh:
@@ -199,19 +199,13 @@ class VideoFeatures:
 						continue
 					else:
 						face = frame[c[0]:c[1], c[2]:c[3]]
-					face = cv2.resize(face, (self.input_size[0], self.input_size[1])).astype('float32')
-					faces.append(face)
+						face = cv2.resize(face, (self.input_size[0], self.input_size[1])).astype('float32')
+						faces.append(face)
 			else:
 				break
 		cap.release()
 		
 		faces = np.array(faces)
-		
-		"""if n_nan > 0:
-			faces = self.fill_nan(faces)
-			if self.options.verbose:
-				print(f'Total number of NaN frames before interpolation in {video_path} is {n_nan}')
-				print(f'Reduced to {np.count_nonzero(np.isnan(faces))/(224*224*3)}')"""
 			
 		return faces, all_coords
 	
@@ -314,10 +308,4 @@ class VideoFeatures:
 			frames = frames[cut_b+1:]
 			new_idx += list(zip(np.repeat(file, len(frames)), frames))
 		return video_data.loc[new_idx]
-	
-	@staticmethod
-	def fill_nan(faces):
-		init_shape = faces.shape
-		faces = pd.DataFrame(faces.reshape(init_shape[0], -1)).interpolate(axis=0, limit_direction='both')
-		faces = faces.values.reshape(init_shape)
-		return faces
+
