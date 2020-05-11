@@ -24,7 +24,8 @@ class AudioFeatures:
         folders = config['folders']
         self.raw_audio_dir = Path(folders['raw_audio_folder']) if 'raw_audio_folder' in folders else None
         self.seg_audio_dir = Path(folders['seg_audio_folder']) if 'seg_audio_folder' in folders else None
-
+        self.raw_audio_toolkit_folder = Path(
+            folders['raw_audio_toolkit_folder']) if 'raw_audio_toolkit_folder' in folders else None
         self.feature_type = config['general']['audio_features'].lower()
 
         if self.feature_type.startswith('series'):
