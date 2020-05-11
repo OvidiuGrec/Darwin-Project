@@ -42,18 +42,18 @@ def extract_praat_features(wav_dir='C:\\AVEC2014\\audio\\wav', feature_dir='C:\\
                            project_directory='C:\\Darwin-Project', data_sets=['Development', 'Testing', 'Training'],
                            config_files=['cpp', 'ff', 'hnr'], tasks=['Northwind', 'Freeform']):
 
-    praat_exe = f"{project_directory}\\data\\audio\\Praat\\praat_executable"
+    praat_exe = f"{project_directory}\\tools\\Praat\\praat_executable"
     for config_file in config_files:
         # path to config file, may differ from your location
-        config_path = os.path.join(f"{project_directory}\\data\\audio\\Praat\\Scripts", config_file)
+        config_path = os.path.join(f"{project_directory}\\tools\\Praat\\Scripts", config_file)
         extract_features(wav_dir, feature_dir, data_sets, config_path, config_file, tasks, praat_exe)
 
 def extract_mfcc_features(wav_dir='C:\\AVEC2014\\audio\\wav', feature_dir='C:\\Features\\praat_opensmile_features',
                           project_directory='C:\\Darwin-Project', data_sets=['Development', 'Testing', 'Training'],
                           tasks=['Northwind', 'Freeform']):
 
-    config_path = f"{project_directory}\\data\\audio\\openSMILE\\config\\mfcc\\mfcc.conf"
-    open_smile_exe = f"{project_directory}\\data\\audio\\openSMILE\\msvcbuild\\SMILExtract_Release"
+    config_path = f"{project_directory}\\tools\\openSMILE\\config\\mfcc\\mfcc.conf"
+    open_smile_exe = f"{project_directory}\\tools\\openSMILE\\msvcbuild\\SMILExtract_Release"
     extract_features(wav_dir, feature_dir, data_sets, config_path, 'mfcc', tasks, open_smile_exe)
 
 def get_delta_mfcc(file, rec_len):
