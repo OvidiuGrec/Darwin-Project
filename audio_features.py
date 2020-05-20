@@ -98,7 +98,7 @@ class AudioFeatures:
                 subprocess.run(['SMILExtract', '-C', str(self.__config_file),
                                 '-I', str(paths[i]), '-O', str(target_file), '-l', '0'])
             elif sys.platform.startswith('win32'):
-                subprocess.run(['SMILExtract_Release.exe', '-C', str(self.__config_file),
+                subprocess.run(['C:\\Darwin-Project\\tools\\openSMILE\\msvcbuild\\SMILExtract_Release.exe', '-C', str(self.__config_file),
                                 '-I', str(paths[i]), '-O', str(target_file), '-l', '0'])
 
     def build_feature_sets(self):

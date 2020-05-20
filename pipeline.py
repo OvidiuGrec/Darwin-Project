@@ -90,8 +90,8 @@ class Pipeline:
     def train_model(self, feature_type):
         X_train, y_train, X_test, y_test = self.data.load_data(feature_type)
         input_shape = X_train.shape
-        
-        self.pars['FNN']['train']['validation_data'] = (X_test, y_test)
+
+        #self.pars['FNN']['train']['validation_data'] = (X_test, y_test)
         model = DepressionModel(feature_type, self.config[feature_type], input_shape, pars=self.pars)
         
         model.train(X_train, y_train)

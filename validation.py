@@ -32,8 +32,8 @@ def per_patient_plot(y_true, y_pred):
 	y_pred = y_pred.reindex(y_true.index)
 	x = np.arange(y_true.shape[0])
 	fig, ax = plt.subplots(figsize=(10, 6))
-	ax.set(title="Predicted vs True BDI-II score in Test set",
-		   xlabel="Patient Number in Test Set",
+	ax.set(title="Predicted vs True BDI-II score in Dev set",
+		   xlabel="Patient Number in Dev Set",
 		   ylabel="BDI-II")
 	ax.stem(x, y_true, label='true', linefmt='r--', markerfmt='ro', basefmt=' ', use_line_collection=True)
 	ax.stem(x, y_pred, label='pred', linefmt='b-', markerfmt='bx', basefmt=' ', use_line_collection=True)
@@ -55,14 +55,14 @@ def error_plot(y_true, y_pred):
 def plot_confusion_matrix(y_true, y_pred, binary=False):
 	
 	cm = confusion_matrix(to_classes(y_true, binary=binary), to_classes(y_pred, binary=binary))
-	
+	cm = np.flipud(cm)
 	accuracy = np.trace(cm) / np.sum(cm).astype('float')
 	misclass = 1 - accuracy
 	
 	if binary:
 		labels = ['no dep', 'dep']
 	else:
-		labels = ['normal', 'miled', 'border', 'moderate', 'sever', 'extreme']
+		labels = ['normal', 'mild', 'border', 'moderate', 'severe', 'extreme']
 
 	cmap = plt.get_cmap('Blues')
 
@@ -74,7 +74,7 @@ def plot_confusion_matrix(y_true, y_pred, binary=False):
 	if labels is not None:
 		tick_marks = np.arange(len(labels))
 		plt.xticks(tick_marks, labels, rotation=45)
-		plt.yticks(tick_marks, labels)
+		plt.yticks(tick_marks, labels[::-1])
 
 	thresh = cm.max() / 2
 	for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
